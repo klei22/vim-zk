@@ -52,13 +52,13 @@ All integrated into Vim/Neovim via handy shortcuts and a few dynamic templates.
    - This plugin is pure Vimscript; no external dependencies required.
 
 2. **Plugin File**:
-   - Save the plugin script as `zd_plugin.vim` in your local plugin directory:
-     - `~/.vim/plugin/zd_plugin.vim` for Vim, or
-     - `~/.config/nvim/plugin/zd_plugin.vim` for Neovim.
+   - Save the plugin script as `vim-zk.vim` in your local plugin directory:
+     - `~/.vim/plugin/vim-zk.vim` for Vim, or
+     - `~/.config/nvim/plugin/vim-zk.vim` for Neovim.
 
 3. **Source It** (in your `~/.vimrc` or `~/.config/nvim/init.vim`):
    ```vim
-   source ~/.vim/plugin/zd_plugin.vim
+   source ~/.vim/plugin/vim-zk.vim
    ```
 
 4. **(Optional) Create Template Files** under `~/.zd/templates/`, for example:
