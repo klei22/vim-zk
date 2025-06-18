@@ -19,6 +19,9 @@ let g:zd_dir_yearly  = g:zd_dir . '/yearly'
 let g:zd_dir_templates = g:zd_dir . '/templates'
 let g:zd_dir_todos   = g:zd_dir . '/todos'
 let g:zd_dir_projects = g:zd_dir . '/projects'  " <--- For project support
+let g:zd_dir_areas = g:zd_dir . '/areas'  " <--- For organizing projects
+let g:zd_dir_resources = g:zd_dir . '/resources'  " <--- shared resources
+let g:zd_dir_archives= g:zd_dir . '/archives'  " <--- old projects, etc, things unused but should keep
 
 " Template filenames
 let g:zd_tpl_daily   = g:zd_dir_templates . '/daily.md'
@@ -26,6 +29,7 @@ let g:zd_tpl_weekly  = g:zd_dir_templates . '/weekly.md'
 let g:zd_tpl_monthly = g:zd_dir_templates . '/monthly.md'
 let g:zd_tpl_yearly  = g:zd_dir_templates . '/yearly.md'
 let g:zd_tpl_project = g:zd_dir_templates . '/project.md'
+let g:zd_tpl_area = g:zd_dir_templates . '/area.md'
 
 " Active/done todos
 let g:zd_active_todos = g:zd_dir_todos . '/active_todos.md'
@@ -33,6 +37,7 @@ let g:zd_done_todos   = g:zd_dir_todos . '/done_todos.md'
 
 " Project listing index
 let g:zd_projects_index = g:zd_dir_projects . '/projects.md'
+let g:zd_areas_index = g:zd_dir_areas . '/areas.md'
 
 " Create top-level directories if they don't exist
 call mkdir(g:zd_dir_daily, 'p')
@@ -42,6 +47,9 @@ call mkdir(g:zd_dir_yearly, 'p')
 call mkdir(g:zd_dir_templates, 'p')
 call mkdir(g:zd_dir_todos, 'p')
 call mkdir(g:zd_dir_projects, 'p')
+call mkdir(g:zd_dir_areas, 'p')
+call mkdir(g:zd_dir_resources, 'p')
+call mkdir(g:zd_dir_archives, 'p')
 
 
 " =============================================================================
@@ -610,4 +618,118 @@ function! s:OpenProjectsIndex() abort
 endfunction
 
 nnoremap <silent> <leader>zP :call <SID>OpenProjectsIndex()<CR>
+
+
+" =============================================================================
+"                  AREA SUPPORT: MAIN AREA INDEX + INDIVIDUAL
+" =============================================================================
+
+" We'll keep a "areas.md" index at "~/.zd/areas/areas.md".
+" Then <leader>za => prompt for area name => open or create subfolder + main_area.md
+" We'll also update areas.md with a link if not present.
+"
+" <leader>zA => open the "areas.md" index directly.
+
+function! s:OpenArea(...) abort
+  " If we got an argument, use it; otherwise prompt
+  if a:0 == 1
+    let l:area_name = a:1
+  else
+    let l:area_name = input("Area name: ")
+  endif
+  if empty(l:area_name)
+    echo "Cancelled."
+    return
+  endif
+
+  let l:dir = g:zd_dir_areas . '/' . l:area_name
+  let l:file = l:dir . '/main_area.md'
+
+  if !isdirectory(l:dir)
+    call mkdir(l:dir, 'p')
+  endif
+
+  " If not exist, create from template or fallback
+  if !filereadable(l:file)
+    let l:date_str = strftime('%Y-%m-%d %H:%M:%S')
+    let l:replacements = {
+    \ 'AREA_NAME': l:area_name,
+    \ 'DATE_CREATED': l:date_str,
+    \ 'AREA_PATH': l:dir,
+    \}
+    let l:lines = s:LoadTemplateAndReplace(g:zd_tpl_area, l:replacements)
+    if empty(l:lines)
+      let l:lines = [
+      \ '# Area: ' . l:area_name,
+      \ '',
+      \ 'Created on ' . l:date_str,
+      \ '',
+      \ '## Overview',
+      \ '- Outline your area goals',
+      \ '- Important links or references',
+      \ '- Next steps',
+      \ '',
+      \ '## Tasks',
+      \ '- [ ] ',
+      \ ]
+    endif
+    call writefile(l:lines, l:file, 'b')
+
+    " Insert or update the area listing in areas.md
+    call s:UpdateAreasIndex(l:area_name, l:file, l:date_str)
+  else
+    " Already exist => ensure it's in the index
+    call s:UpdateAreasIndex(l:area_name, l:file, '')
+  endif
+
+  execute 'edit ' . fnameescape(l:file)
+endfunction
+
+" This helper ensures there's an entry in the "areas.md" index for the given area.
+function! s:UpdateAreasIndex(area_name, main_file, date_str) abort
+  " Make sure areas.md exists
+  if !filereadable(g:zd_areas_index)
+    call writefile(['# Areas Index', ''], g:zd_areas_index)
+  endif
+
+  let l:lines = readfile(g:zd_areas_index)
+
+  " We want to see if there's already a line referencing this area's "main_file"
+  " We'll store the area as a relative link if possible, e.g. "area_name/main_area.md"
+  let l:rel_path = fnamemodify(a:main_file, ':~:.')
+  " But simpler might be: relative to the areas folder
+  let l:rel_to_areas = fnamemodify(a:main_file, ':t')  " "main_area.md"
+  " Or "area_name/main_area.md"? Let's do that by taking the base folder name
+  let l:base_folder = fnamemodify(a:main_file, ':h:t')  " e.g. area_name
+  let l:rel_display = l:base_folder . '/main_area.md'
+
+  " We'll check if the line referencing "rel_display" is already in lines
+  let l:found = 0
+  for l:ln in l:lines
+    if l:ln =~ rel_display
+      let l:found = 1
+      break
+    endif
+  endfor
+
+  if !l:found
+    " Add a new line: "- [area_name](area_name/main_area.md) (created DATE)"
+    let l:date_info = (a:date_str == '' ? '' : ' (created ' . a:date_str . ')')
+    let l:new_line = '- [' . a:area_name . '](' . l:rel_display . ')' . l:date_info
+    call writefile([l:new_line], g:zd_areas_index, 'a')
+  endif
+endfunction
+
+" Key mapping to create/open area
+nnoremap <silent> <leader>za :call <SID>OpenArea()<CR>
+
+" And mapping to open the main areas index
+function! s:OpenAreasIndex() abort
+  if !filereadable(g:zd_areas_index)
+    call writefile(['# Areas Index', ''], g:zd_areas_index)
+  endif
+  execute 'edit ' . fnameescape(g:zd_areas_index)
+endfunction
+
+nnoremap <silent> <leader>zA :call <SID>OpenAreasIndex()<CR>
 
