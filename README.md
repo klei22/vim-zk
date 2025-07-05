@@ -35,6 +35,7 @@ All integrated into Vim/Neovim via handy shortcuts and a few dynamic templates.
   - Automatically added to `~/.zd/projects/projects.md` (a master index).
   - Quickly open any project from an interactive prompt.
   - Daily notes show all projects grouped by area for quick access.
+
 - **Llama Summaries**:
   - Use `llama-cli` to generate a summary of recent daily notes.
   - Trigger with `<leader>zs` for the last day or call `:call <SID>SummarizeRecentDays(n)` for `n` days.
