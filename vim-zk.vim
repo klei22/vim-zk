@@ -95,6 +95,46 @@ endfunction
 
 
 " =============================================================================
+"              COLLECT PROJECTS ORGANIZED BY AREA FOR DAILY NOTES
+" =============================================================================
+function! s:ProjectsByAreaLines() abort
+  let l:out = []
+  if !isdirectory(g:zd_dir_areas)
+    return l:out
+  endif
+  let l:dirs = sort(filter(split(globpath(g:zd_dir_areas, '*', 1, 1), '\n'), 'isdirectory(v:val)'))
+  for l:dir in l:dirs
+    let l:area_name = fnamemodify(l:dir, ':t')
+    let l:file = l:dir . '/main_area.md'
+    if !filereadable(l:file)
+      continue
+    endif
+    let l:lines = readfile(l:file)
+    let l:start = index(l:lines, '## Projects')
+    if l:start < 0
+      continue
+    endif
+    let l:list = []
+    for l:i in range(l:start + 1, len(l:lines) - 1)
+      let l:ln = l:lines[l:i]
+      if l:ln =~# '^##'
+        break
+      endif
+      if l:ln =~# '^-'
+        call add(l:list, '  ' . l:ln)
+      endif
+    endfor
+    if !empty(l:list)
+      call add(l:out, '##### ' . l:area_name)
+      call extend(l:out, l:list)
+      call add(l:out, '')
+    endif
+  endfor
+  return l:out
+endfunction
+
+
+" =============================================================================
 "                    DAILY NOTE (<leader>zd) with READABLE_DATE
 " =============================================================================
 
@@ -125,6 +165,7 @@ function! s:OpenDailyNote(...) abort
     let l:month_str = strftime('%y%m', (l:t > 0 ? l:t : localtime()))
     let l:year_str  = strftime('%y',   (l:t > 0 ? l:t : localtime()))
 
+    let l:proj_lines = s:ProjectsByAreaLines()
     let l:replacements = {
     \ 'TODAY': l:today_str,
     \ 'PREV_DAY': l:prev_str,
@@ -137,6 +178,7 @@ function! s:OpenDailyNote(...) abort
     \ 'PATH_WEEKLY': g:zd_dir_weekly,
     \ 'PATH_MONTHLY': g:zd_dir_monthly,
     \ 'PATH_YEARLY': g:zd_dir_yearly,
+    \ 'PROJECTS_BY_AREA': join(l:proj_lines, "\n"),
     \}
 
     let l:lines = s:LoadTemplateAndReplace(g:zd_tpl_daily, l:replacements)
@@ -163,6 +205,9 @@ function! s:OpenDailyNote(...) abort
       \ '---',
       \ '',
       \ '## ' . l:readable_date,
+      \ '',
+      \ '#### Projects by Area',
+      \ ] + l:proj_lines + [
       \ '',
       \ ]
     endif
