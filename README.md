@@ -34,6 +34,13 @@ All integrated into Vim/Neovim via handy shortcuts and a few dynamic templates.
   - A main file `main_project.md` is created from a customizable template.
   - Automatically added to `~/.zd/projects/projects.md` (a master index).
   - Quickly open any project from an interactive prompt.
+  - Daily notes show all projects grouped by area for quick access.
+- **Llama Summaries**:
+  - Use `llama-cli` to generate a summary of recent daily notes.
+  - Set `g:zd_llama_repo` to select the model repository.
+  - Summaries are saved under `~/.zd/summaries/<start>_<end>.txt`.
+  - Trigger with `<leader>zs` for the last day or call `:call <SID>SummarizeRecentDays(n)` for `n` days.
+  - `:call <SID>SummarizeRecentWeeks(n)` summarizes `n` weeks (7×n days).
 
 - **Templating System**:
   - Store your own markdown templates in `~/.zd/templates/` (e.g. `daily.md`, `weekly.md`, etc.).
@@ -50,6 +57,7 @@ All integrated into Vim/Neovim via handy shortcuts and a few dynamic templates.
 1. **Prerequisites**:
    - You need a running Vim or Neovim environment.
    - This plugin is pure Vimscript; no external dependencies required.
+   - Install `llama-cli` if you want to use the summary feature.
 
 2. **Plugin File**:
    - Save the plugin script as `vim-zk.vim` in your local plugin directory:
@@ -91,6 +99,7 @@ Below are the default mappings (`<leader>` often defaults to `\` in Vim, but you
 | `<leader>tO` | **Open Done TODOS**: Quickly open `~/.zd/todos/done_todos.md`.                               |
 | `<leader>zp` | **Open/Prompt for Project**: Creates or opens a project’s `main_project.md`.                 |
 | `<leader>zP` | **Open Projects Index**: Opens the master `projects.md` listing all created projects.        |
+| `<leader>zs` | **Summarize Dailies**: Run `llama-cli` on the last day (or use `:call <SID>SummarizeRecentDays(n)` for more) and store the result. |
 
 ### Example Workflows
 
@@ -149,6 +158,9 @@ Each note type can have a markdown template in `~/.zd/templates/<type>.md`. For 
 ---
 
 ## {{READABLE_DATE}}
+
+#### Projects by Area
+{{PROJECTS_BY_AREA}}
 
 ### Morning Thoughts
 -
