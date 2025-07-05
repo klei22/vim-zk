@@ -793,6 +793,7 @@ function! s:SummarizeRecentDays(...) abort
   let l:days = (a:0 > 0 ? a:1 : 1)
   let l:end_stamp = strftime('%y%m%d')
   let l:start_stamp = strftime('%y%m%d', localtime() - (l:days - 1) * 86400)
+
   let l:all_lines = []
   for i in range(l:days - 1, 0, -1)
     let l:stamp = strftime('%y%m%d', localtime() - i * 86400)
@@ -859,4 +860,5 @@ function! s:SummarizeRecentWeeks(...) abort
 endfunction
 
 nnoremap <silent> <leader>zs :call <SID>SummarizeRecentDays()<CR>
+nnoremap <silent> <leader>zS :call <SID>SummarizeRecentDays(5)<CR>
 
