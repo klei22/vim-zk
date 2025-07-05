@@ -39,6 +39,7 @@ All integrated into Vim/Neovim via handy shortcuts and a few dynamic templates.
   - Use `llama-cli` to generate a summary of recent daily notes.
   - Set `g:zd_llama_repo` to select the model repository.
   - Summaries are saved under `~/.zd/summaries/<start>_<end>.txt`.
+
   - Trigger with `<leader>zs` for the last day or call `:call <SID>SummarizeRecentDays(n)` for `n` days.
   - `:call <SID>SummarizeRecentWeeks(n)` summarizes `n` weeks (7×n days).
 
