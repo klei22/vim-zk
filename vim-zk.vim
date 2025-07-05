@@ -22,6 +22,7 @@ let g:zd_dir_projects = g:zd_dir . '/projects'  " <--- For project support
 let g:zd_dir_areas = g:zd_dir . '/areas'  " <--- For organizing projects
 let g:zd_dir_resources = g:zd_dir . '/resources'  " <--- shared resources
 let g:zd_dir_archives= g:zd_dir . '/archives'  " <--- old projects, etc, things unused but should keep
+let g:zd_dir_summaries = g:zd_dir . '/summaries'
 
 " Template filenames
 let g:zd_tpl_daily   = g:zd_dir_templates . '/daily.md'
@@ -53,6 +54,7 @@ call mkdir(g:zd_dir_projects, 'p')
 call mkdir(g:zd_dir_areas, 'p')
 call mkdir(g:zd_dir_resources, 'p')
 call mkdir(g:zd_dir_archives, 'p')
+call mkdir(g:zd_dir_summaries, 'p')
 
 
 " =============================================================================
@@ -789,6 +791,9 @@ nnoremap <silent> <leader>zA :call <SID>OpenAreasIndex()<CR>
 " `llama-cli` for summarization.  Defaults to 1 day.
 function! s:SummarizeRecentDays(...) abort
   let l:days = (a:0 > 0 ? a:1 : 1)
+  let l:end_stamp = strftime('%y%m%d')
+  let l:start_stamp = strftime('%y%m%d', localtime() - (l:days - 1) * 86400)
+
   let l:all_lines = []
   for i in range(l:days - 1, 0, -1)
     let l:stamp = strftime('%y%m%d', localtime() - i * 86400)
@@ -803,7 +808,13 @@ function! s:SummarizeRecentDays(...) abort
   endif
   let l:prompt = 'Summarize the following notes:\n' . join(l:all_lines, "\n")
   let l:cmd = 'llama-cli -hf ' . g:zd_llama_repo . ' -p ' . shellescape(l:prompt)
+  echom 'Running llama-cli to summarize notes...'
   let l:summary = system(l:cmd)
+  let l:summary_file = g:zd_dir_summaries . '/' . l:start_stamp . '_' . l:end_stamp . '.txt'
+  call mkdir(fnamemodify(l:summary_file, ':h'), 'p')
+  call writefile(split(l:summary, "\n"), l:summary_file)
+  echom 'Summary saved to ' . l:summary_file
+
   botright new
   call setline(1, split(l:summary, "\n"))
   setlocal buftype=nofile bufhidden=wipe noswapfile
