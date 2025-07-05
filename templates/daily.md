@@ -15,6 +15,7 @@
 
 #### Projects
 -
+{{PROJECTS_BY_AREA}}
 
 ### Today
 
