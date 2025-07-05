@@ -41,7 +41,7 @@ let g:zd_projects_index = g:zd_dir_projects . '/projects.md'
 let g:zd_areas_index = g:zd_dir_areas . '/areas.md'
 
 " Llama model repo for summaries
-let g:zd_llama_repo = 'bartowski/Llama-3.2-3B-Instruct-GGUF:Q8_0'
+let g:zd_llama_repo = 'unsloth/gemma-3n-E4B-it-GGUF'
 
 " Create top-level directories if they don't exist
 call mkdir(g:zd_dir_daily, 'p')
