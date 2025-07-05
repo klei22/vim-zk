@@ -38,10 +38,10 @@ All integrated into Vim/Neovim via handy shortcuts and a few dynamic templates.
 - **Llama Summaries**:
   - Use `llama-cli` to generate a summary of recent daily notes.
   - Set `g:zd_llama_repo` to select the model repository.
-  - Summaries are saved under `~/.zd/summaries/<start>_<end>.txt`.
-
+  - Summaries are saved under `~/.zd/summaries/<start>_<end>.txt` (customize via `g:zd_dir_summaries`).
   - Trigger with `<leader>zs` for the last day or call `:call <SID>SummarizeRecentDays(n)` for `n` days.
   - `:call <SID>SummarizeRecentWeeks(n)` summarizes `n` weeks (7×n days).
+  - Runs asynchronously so you can keep editing while `llama-cli` works.
 
 - **Templating System**:
   - Store your own markdown templates in `~/.zd/templates/` (e.g. `daily.md`, `weekly.md`, etc.).
@@ -100,7 +100,8 @@ Below are the default mappings (`<leader>` often defaults to `\` in Vim, but you
 | `<leader>tO` | **Open Done TODOS**: Quickly open `~/.zd/todos/done_todos.md`.                               |
 | `<leader>zp` | **Open/Prompt for Project**: Creates or opens a project’s `main_project.md`.                 |
 | `<leader>zP` | **Open Projects Index**: Opens the master `projects.md` listing all created projects.        |
-| `<leader>zs` | **Summarize Dailies**: Run `llama-cli` on the last day (or use `:call <SID>SummarizeRecentDays(n)` for more) and store the result. |
+| `<leader>zs` | **Summarize Dailies**: Asynchronously run `llama-cli` on the last day (or use `:call <SID>SummarizeRecentDays(n)` for more) and store the result. |
+
 
 ### Example Workflows
 

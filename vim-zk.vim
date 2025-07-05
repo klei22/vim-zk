@@ -808,16 +808,49 @@ function! s:SummarizeRecentDays(...) abort
   endif
   let l:prompt = 'Summarize the following notes:\n' . join(l:all_lines, "\n")
   let l:cmd = 'llama-cli -hf ' . g:zd_llama_repo . ' -p ' . shellescape(l:prompt)
-  echom 'Running llama-cli to summarize notes...'
-  let l:summary = system(l:cmd)
   let l:summary_file = g:zd_dir_summaries . '/' . l:start_stamp . '_' . l:end_stamp . '.txt'
   call mkdir(fnamemodify(l:summary_file, ':h'), 'p')
-  call writefile(split(l:summary, "\n"), l:summary_file)
-  echom 'Summary saved to ' . l:summary_file
+  echom 'Running llama-cli asynchronously...'
+  if exists('*jobstart') || exists('*job_start')
+    let l:ctx = { 'file': l:summary_file, 'out': [] }
+    let l:opts = {
+          \ 'stdout_buffered': 1,
+          \ 'on_stdout': function('<SID>LlamaCollect', [l:ctx]),
+          \ 'on_stderr': function('<SID>LlamaCollect', [l:ctx]),
+          \ 'on_exit': function('<SID>LlamaFinish', [l:ctx]) }
+    call s:JobStart(l:cmd, l:opts)
+  else
+    echom 'jobstart() not available, running synchronously.'
+    let l:summary = system(l:cmd)
+    call <SID>LlamaFinish({ 'file': l:summary_file, 'out': split(l:summary, "\n") }, 0, 0)
+  endif
+endfunction
 
+function! s:LlamaCollect(ctx, job, data, event) abort
+  if a:event ==# 'stdout' || a:event ==# 'stderr'
+    call extend(a:ctx.out, a:data)
+  endif
+endfunction
+
+function! s:LlamaFinish(ctx, job, status) abort
+  if a:ctx.out[-1] ==# ''
+    call remove(a:ctx.out, -1)
+  endif
+  call writefile(a:ctx.out, a:ctx.file)
+  echom 'Summary saved to ' . a:ctx.file
   botright new
-  call setline(1, split(l:summary, "\n"))
+  call setline(1, a:ctx.out)
   setlocal buftype=nofile bufhidden=wipe noswapfile
+endfunction
+
+function! s:JobStart(cmd, opts) abort
+  if exists('*jobstart')
+    return jobstart(a:cmd, a:opts)
+  elseif exists('*job_start')
+    return job_start(a:cmd, a:opts)
+  else
+    return -1
+  endif
 endfunction
 
 " Wrapper to summarize recent weeks (7 * n days)
@@ -827,4 +860,5 @@ function! s:SummarizeRecentWeeks(...) abort
 endfunction
 
 nnoremap <silent> <leader>zs :call <SID>SummarizeRecentDays()<CR>
+nnoremap <silent> <leader>zS :call <SID>SummarizeRecentDays(5)<CR>
 
