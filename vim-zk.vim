@@ -39,6 +39,9 @@ let g:zd_done_todos   = g:zd_dir_todos . '/done_todos.md'
 let g:zd_projects_index = g:zd_dir_projects . '/projects.md'
 let g:zd_areas_index = g:zd_dir_areas . '/areas.md'
 
+" Llama model repo for summaries
+let g:zd_llama_repo = 'bartowski/Llama-3.2-3B-Instruct-GGUF:Q8_0'
+
 " Create top-level directories if they don't exist
 call mkdir(g:zd_dir_daily, 'p')
 call mkdir(g:zd_dir_weekly, 'p')
@@ -732,4 +735,40 @@ function! s:OpenAreasIndex() abort
 endfunction
 
 nnoremap <silent> <leader>zA :call <SID>OpenAreasIndex()<CR>
+
+" =============================================================================
+"                   SUMMARIZE DAILY NOTES WITH LLAMA-CLI
+" =============================================================================
+
+" Gather the contents of the last {days} daily notes and feed them to
+" `llama-cli` for summarization.  Defaults to 1 day.
+function! s:SummarizeRecentDays(...) abort
+  let l:days = (a:0 > 0 ? a:1 : 1)
+  let l:all_lines = []
+  for i in range(l:days - 1, 0, -1)
+    let l:stamp = strftime('%y%m%d', localtime() - i * 86400)
+    let l:file = g:zd_dir_daily . '/' . l:stamp . '.md'
+    if filereadable(l:file)
+      call extend(l:all_lines, ['# ' . l:stamp] + readfile(l:file) + [''])
+    endif
+  endfor
+  if empty(l:all_lines)
+    echo 'No daily notes found.'
+    return
+  endif
+  let l:prompt = 'Summarize the following notes:\n' . join(l:all_lines, "\n")
+  let l:cmd = 'llama-cli -hf ' . g:zd_llama_repo . ' -p ' . shellescape(l:prompt)
+  let l:summary = system(l:cmd)
+  botright new
+  call setline(1, split(l:summary, "\n"))
+  setlocal buftype=nofile bufhidden=wipe noswapfile
+endfunction
+
+" Wrapper to summarize recent weeks (7 * n days)
+function! s:SummarizeRecentWeeks(...) abort
+  let l:weeks = (a:0 > 0 ? a:1 : 1)
+  call s:SummarizeRecentDays(l:weeks * 7)
+endfunction
+
+nnoremap <silent> <leader>zs :call <SID>SummarizeRecentDays()<CR>
 
