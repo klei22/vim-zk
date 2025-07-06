@@ -22,6 +22,7 @@ let g:zd_dir_projects = g:zd_dir . '/projects'  " <--- For project support
 let g:zd_dir_areas = g:zd_dir . '/areas'  " <--- For organizing projects
 let g:zd_dir_resources = g:zd_dir . '/resources'  " <--- shared resources
 let g:zd_dir_archives= g:zd_dir . '/archives'  " <--- old projects, etc, things unused but should keep
+let g:zd_dir_summaries = g:zd_dir . '/summaries'
 
 " Template filenames
 let g:zd_tpl_daily   = g:zd_dir_templates . '/daily.md'
@@ -39,6 +40,9 @@ let g:zd_done_todos   = g:zd_dir_todos . '/done_todos.md'
 let g:zd_projects_index = g:zd_dir_projects . '/projects.md'
 let g:zd_areas_index = g:zd_dir_areas . '/areas.md'
 
+" Llama model repo for summaries
+let g:zd_llama_repo = 'bartowski/Llama-3.2-3B-Instruct-GGUF:Q8_0'
+
 " Create top-level directories if they don't exist
 call mkdir(g:zd_dir_daily, 'p')
 call mkdir(g:zd_dir_weekly, 'p')
@@ -50,6 +54,7 @@ call mkdir(g:zd_dir_projects, 'p')
 call mkdir(g:zd_dir_areas, 'p')
 call mkdir(g:zd_dir_resources, 'p')
 call mkdir(g:zd_dir_archives, 'p')
+call mkdir(g:zd_dir_summaries, 'p')
 
 
 " =============================================================================
@@ -92,6 +97,46 @@ endfunction
 
 
 " =============================================================================
+"              COLLECT PROJECTS ORGANIZED BY AREA FOR DAILY NOTES
+" =============================================================================
+function! s:ProjectsByAreaLines() abort
+  let l:out = []
+  if !isdirectory(g:zd_dir_areas)
+    return l:out
+  endif
+  let l:dirs = sort(filter(globpath(g:zd_dir_areas, '*', 1, 1), 'isdirectory(v:val)'))
+  for l:dir in l:dirs
+    let l:area_name = fnamemodify(l:dir, ':t')
+    let l:file = l:dir . '/main_area.md'
+    if !filereadable(l:file)
+      continue
+    endif
+    let l:lines = readfile(l:file)
+    let l:start = index(l:lines, '## Projects')
+    if l:start < 0
+      continue
+    endif
+    let l:list = []
+    for l:i in range(l:start + 1, len(l:lines) - 1)
+      let l:ln = l:lines[l:i]
+      if l:ln =~# '^##'
+        break
+      endif
+      if l:ln =~# '^-'
+        call add(l:list, '  ' . l:ln)
+      endif
+    endfor
+    if !empty(l:list)
+      call add(l:out, '##### ' . l:area_name)
+      call extend(l:out, l:list)
+      call add(l:out, '')
+    endif
+  endfor
+  return l:out
+endfunction
+
+
+" =============================================================================
 "                    DAILY NOTE (<leader>zd) with READABLE_DATE
 " =============================================================================
 
@@ -122,6 +167,7 @@ function! s:OpenDailyNote(...) abort
     let l:month_str = strftime('%y%m', (l:t > 0 ? l:t : localtime()))
     let l:year_str  = strftime('%y',   (l:t > 0 ? l:t : localtime()))
 
+    let l:proj_lines = s:ProjectsByAreaLines()
     let l:replacements = {
     \ 'TODAY': l:today_str,
     \ 'PREV_DAY': l:prev_str,
@@ -134,6 +180,7 @@ function! s:OpenDailyNote(...) abort
     \ 'PATH_WEEKLY': g:zd_dir_weekly,
     \ 'PATH_MONTHLY': g:zd_dir_monthly,
     \ 'PATH_YEARLY': g:zd_dir_yearly,
+    \ 'PROJECTS_BY_AREA': join(l:proj_lines, "\n"),
     \}
 
     let l:lines = s:LoadTemplateAndReplace(g:zd_tpl_daily, l:replacements)
@@ -160,6 +207,9 @@ function! s:OpenDailyNote(...) abort
       \ '---',
       \ '',
       \ '## ' . l:readable_date,
+      \ '',
+      \ '#### Projects by Area',
+      \ ] + l:proj_lines + [
       \ '',
       \ ]
     endif
@@ -732,4 +782,81 @@ function! s:OpenAreasIndex() abort
 endfunction
 
 nnoremap <silent> <leader>zA :call <SID>OpenAreasIndex()<CR>
+
+" =============================================================================
+"                   SUMMARIZE DAILY NOTES WITH LLAMA-CLI
+" =============================================================================
+
+" Gather the contents of the last {days} daily notes and feed them to
+" `llama-cli` for summarization.  Defaults to 1 day.
+function! s:SummarizeRecentDays(...) abort
+  let l:days = (a:0 > 0 ? a:1 : 1)
+  let l:end_stamp = strftime('%y%m%d')
+  let l:start_stamp = strftime('%y%m%d', localtime() - (l:days - 1) * 86400)
+  let l:all_lines = []
+  for i in range(l:days - 1, 0, -1)
+    let l:stamp = strftime('%y%m%d', localtime() - i * 86400)
+    let l:file = g:zd_dir_daily . '/' . l:stamp . '.md'
+    if filereadable(l:file)
+      call extend(l:all_lines, ['# ' . l:stamp] + readfile(l:file) + [''])
+    endif
+  endfor
+  if empty(l:all_lines)
+    echo 'No daily notes found.'
+    return
+  endif
+  let l:prompt = 'Summarize the following notes:\n' . join(l:all_lines, "\n")
+  let l:cmd = 'llama-cli -hf ' . g:zd_llama_repo . ' -p ' . shellescape(l:prompt)
+  let l:summary_file = g:zd_dir_summaries . '/' . l:start_stamp . '_' . l:end_stamp . '.txt'
+  call mkdir(fnamemodify(l:summary_file, ':h'), 'p')
+  echom 'Running llama-cli asynchronously...'
+  if exists('*jobstart') || exists('*job_start')
+    let l:ctx = { 'file': l:summary_file, 'out': [] }
+    let l:opts = {
+          \ 'stdout_buffered': 1,
+          \ 'on_stdout': function('<SID>LlamaCollect', [l:ctx]),
+          \ 'on_stderr': function('<SID>LlamaCollect', [l:ctx]),
+          \ 'on_exit': function('<SID>LlamaFinish', [l:ctx]) }
+    call s:JobStart(l:cmd, l:opts)
+  else
+    echom 'jobstart() not available, running synchronously.'
+    let l:summary = system(l:cmd)
+    call <SID>LlamaFinish({ 'file': l:summary_file, 'out': split(l:summary, "\n") }, 0, 0)
+  endif
+endfunction
+
+function! s:LlamaCollect(ctx, job, data, event) abort
+  if a:event ==# 'stdout' || a:event ==# 'stderr'
+    call extend(a:ctx.out, a:data)
+  endif
+endfunction
+
+function! s:LlamaFinish(ctx, job, status) abort
+  if a:ctx.out[-1] ==# ''
+    call remove(a:ctx.out, -1)
+  endif
+  call writefile(a:ctx.out, a:ctx.file)
+  echom 'Summary saved to ' . a:ctx.file
+  botright new
+  call setline(1, a:ctx.out)
+  setlocal buftype=nofile bufhidden=wipe noswapfile
+endfunction
+
+function! s:JobStart(cmd, opts) abort
+  if exists('*jobstart')
+    return jobstart(a:cmd, a:opts)
+  elseif exists('*job_start')
+    return job_start(a:cmd, a:opts)
+  else
+    return -1
+  endif
+endfunction
+
+" Wrapper to summarize recent weeks (7 * n days)
+function! s:SummarizeRecentWeeks(...) abort
+  let l:weeks = (a:0 > 0 ? a:1 : 1)
+  call s:SummarizeRecentDays(l:weeks * 7)
+endfunction
+
+nnoremap <silent> <leader>zs :call <SID>SummarizeRecentDays()<CR>
 
