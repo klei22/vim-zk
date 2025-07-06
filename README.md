@@ -43,10 +43,15 @@ All integrated into Vim/Neovim via handy shortcuts and a few dynamic templates.
   - `:call <SID>SummarizeRecentWeeks(n)` summarizes `n` weeks (7×n days).
   - Runs asynchronously so you can keep editing while `llama-cli` works.
 - **Whisper Transcription**:
-  - Uses the `whisper` CLI with the `large-v3` model for wide vocabulary.
+  - Uses [faster-whisper](https://github.com/guillaumekln/faster-whisper) for speedy voice to text.
+  - Command configured via `g:zd_whisper_cmd` (defaults to `faster-whisper`).
   - CUDA accelerated and runs asynchronously similar to the summarizer.
   - Transcripts are saved under `~/.zd/transcripts/`.
-  - Trigger with `<leader>zv` or call `:call <SID>WhisperTranscribe('file.wav')`.
+  - Results open in split windows so you can keep editing while they load.
+  - Call `:call <SID>WhisperTranscribe('file.wav')` to convert existing audio.
+  - Press `<leader>zr` to **record** with `arecord` for `g:zd_record_seconds` seconds and transcribe.
+  - Press `<leader>zR` to record, transcribe, **and** summarize in one go.
+  - Summary buffers show the transcript text followed by the LLM's summary.
 
 - **Templating System**:
   - Store your own markdown templates in `~/.zd/templates/` (e.g. `daily.md`, `weekly.md`, etc.).
@@ -63,7 +68,9 @@ All integrated into Vim/Neovim via handy shortcuts and a few dynamic templates.
 1. **Prerequisites**:
    - You need a running Vim or Neovim environment.
    - This plugin is pure Vimscript; no external dependencies required.
-   - Install `llama-cli` if you want to use the summary feature.
+  - Install `llama-cli` if you want to use the summary feature.
+  - Install `arecord` (from ALSA) to capture audio snippets.
+  - Install the `whisper` CLI for compatibility with earlier versions.
 
 2. **Plugin File**:
    - Save the plugin script as `vim-zk.vim` in your local plugin directory:
@@ -84,6 +91,66 @@ All integrated into Vim/Neovim via handy shortcuts and a few dynamic templates.
    If no template is found, fallback text is used.
 
 5. **Restart** Vim/Neovim and you’re ready!
+
+## Faster-Whisper Setup 🗣️
+
+The voice transcription feature now relies on the [faster-whisper](https://github.com/guillaumekln/faster-whisper) library.
+Set it up like this:
+
+1. Install **Python 3** and **ffmpeg** on your system.
+2. Install the package via pip:
+   ```bash
+   pip install -U faster-whisper
+   ```
+3. Create a helper script (see `faster_whisper.py` in this repo) and note its location:
+   ```python
+   #!/usr/bin/env python3
+   from faster_whisper import WhisperModel
+   import argparse
+
+   parser = argparse.ArgumentParser()
+   parser.add_argument("audio")
+   parser.add_argument("--model", default="large-v3")
+   parser.add_argument("--device", default="cuda")
+   parser.add_argument("--output", required=True)
+   args = parser.parse_args()
+
+   model = WhisperModel(args.model, device=args.device, compute_type="float16")
+   segments, _ = model.transcribe(
+       args.audio,
+       beam_size=10,
+       language="en",
+       vad_filter=True,
+       condition_on_previous_text=False,
+   )
+   with open(args.output, "w", encoding="utf-8") as f:
+       for seg in segments:
+           f.write(seg.text + "\n")
+   ```
+   Use it with a Python interpreter, e.g. `~/.venv/bin/python3.10 /path/to/faster_whisper.py`.
+4. Set `g:zd_whisper_cmd` in your `vimrc` to that command so the plugin can invoke it.
+   (If you installed `faster-whisper` system-wide, leave it as the default.)
+5. Optionally tweak the model by setting `g:zd_whisper_model` (defaults to `large-v3`).
+
+After setup, press `<leader>zr` to record and transcribe, or call
+`WhisperTranscribe('path/to/file.wav')` for existing audio. The transcript (and
+optional summary) will appear in dedicated split windows.
+
+## Whisper Setup (optional)
+
+To use the original `whisper` CLI instead of faster-whisper, install it with pip:
+
+```bash
+pip install git+https://github.com/openai/whisper.git
+```
+
+Ensure `whisper` is on your `PATH`, then set:
+
+```vim
+let g:zd_whisper_cmd = 'whisper'
+```
+
+The plugin will invoke it just like the faster-whisper script.
 
 ---
 
@@ -106,7 +173,8 @@ Below are the default mappings (`<leader>` often defaults to `\` in Vim, but you
 | `<leader>zp` | **Open/Prompt for Project**: Creates or opens a project’s `main_project.md`.                 |
 | `<leader>zP` | **Open Projects Index**: Opens the master `projects.md` listing all created projects.        |
 | `<leader>zs` | **Summarize Dailies**: Asynchronously run `llama-cli` on the last day (or use `:call <SID>SummarizeRecentDays(n)` for more) and store the result. |
-| `<leader>zv` | **Whisper Transcribe**: Convert an audio file to text using the CUDA-accelerated `whisper` CLI. |
+| `<leader>zr` | **Record & Transcribe**: Record via `arecord` then transcribe. |
+| `<leader>zR` | **Record, Transcribe & Summarize**: Capture audio and generate a summary. |
 
 
 ### Example Workflows
@@ -121,9 +189,8 @@ Below are the default mappings (`<leader>` often defaults to `\` in Vim, but you
    - Press `<leader>zp` → type “MyAwesomeProject.”
    - A new folder `~/.zd/projects/MyAwesomeProject/` is made, along with `main_project.md` from a template.
    - A link `[MyAwesomeProject](MyAwesomeProject/main_project.md)` is added to `projects.md`.
-4. **Transcribe a Voice Note**:
-   - Record an audio snippet, then press `<leader>zv` and enter the file path.
-   - The transcript opens in a new buffer once `whisper` finishes.
+4. **Record and Transcribe**:
+   - Press `<leader>zr` to capture audio for a few seconds and automatically open the transcript.
 
 ---
 
@@ -145,6 +212,8 @@ By default, the plugin organizes notes under `~/.zd/`:
   │   └─ <ProjectName>/main_project.md
   ├─ transcripts/
   │   └─ <audio>.txt
+  ├─ recordings/
+  │   └─ <timestamp>.wav
   └─ templates/
       ├─ daily.md
       ├─ weekly.md
