@@ -168,23 +168,39 @@ function! s:OpenDailyNote(...) abort
     let l:month_str = strftime('%y%m', (l:t > 0 ? l:t : localtime()))
     let l:year_str  = strftime('%y',   (l:t > 0 ? l:t : localtime()))
 
+    " ----- in s:OpenDailyNote() -----
     let l:proj_lines = s:ProjectsByAreaLines()
+
+    " 1.  Put a unique marker in the replacements table.
+    let l:marker = '__PROJECTS_BY_AREA_PLACEHOLDER__'
     let l:replacements = {
-    \ 'TODAY': l:today_str,
-    \ 'PREV_DAY': l:prev_str,
-    \ 'NEXT_DAY': l:next_str,
-    \ 'READABLE_DATE': l:readable_date,
-    \ 'WEEK': l:week_str,
-    \ 'MONTH': l:month_str,
-    \ 'YEAR': l:year_str,
-    \ 'PATH_DAILY': g:zd_dir_daily,
-    \ 'PATH_WEEKLY': g:zd_dir_weekly,
-    \ 'PATH_MONTHLY': g:zd_dir_monthly,
-    \ 'PATH_YEARLY': g:zd_dir_yearly,
-    \ 'PROJECTS_BY_AREA': join(l:proj_lines, "\n"),
+    \ 'TODAY':          l:today_str,
+    \ 'PREV_DAY':       l:prev_str,
+    \ 'NEXT_DAY':       l:next_str,
+    \ 'READABLE_DATE':  l:readable_date,
+    \ 'WEEK':           l:week_str,
+    \ 'MONTH':          l:month_str,
+    \ 'YEAR':           l:year_str,
+    \ 'PATH_DAILY':     g:zd_dir_daily,
+    \ 'PATH_WEEKLY':    g:zd_dir_weekly,
+    \ 'PATH_MONTHLY':   g:zd_dir_monthly,
+    \ 'PATH_YEARLY':    g:zd_dir_yearly,
+    \ 'PROJECTS_BY_AREA': l:marker,
     \}
 
+    " 2.  Run the normal placeholder substitution.
     let l:lines = s:LoadTemplateAndReplace(g:zd_tpl_daily, l:replacements)
+
+    " 3.  Replace the marker *line* with the real project list.
+    let l:idx = index(l:lines, l:marker)
+    if l:idx >= 0
+      " delete the marker…
+      call remove(l:lines, l:idx)
+      " …and insert the list lines at that position
+      call extend(l:lines, l:proj_lines, l:idx)
+    endif
+
+
 
     if empty(l:lines)
       " Fallback if no daily.md template found
