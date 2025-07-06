@@ -49,7 +49,7 @@ let g:zd_whisper_model = 'large-v3'
 " Command used to run faster-whisper (can include python interpreter)
 let g:zd_whisper_cmd = 'faster-whisper'
 " Seconds to record audio when using arecord
-let g:zd_record_seconds = 10
+let g:zd_record_seconds = 20
 
 " Create top-level directories if they don't exist
 call mkdir(g:zd_dir_daily, 'p')
@@ -991,7 +991,9 @@ function! s:_WhisperRecord(summary) abort
   else
     call system(l:cmd)
     call <SID>RecordFinish({ 'audio': l:audio, 'summary': a:summary }, 0, 0)
+
   endif
+  call s:_WhisperTranscribe(l:audio, 1)
 endfunction
 
 function! s:RecordFinish(ctx, job, status) abort
@@ -1005,10 +1007,10 @@ endfunction
 
 function! s:WhisperRecordTranscribeAndSummarize() abort
   call s:_WhisperRecord(1)
+
 endfunction
 
 nnoremap <silent> <leader>zv :call <SID>WhisperTranscribe()<CR>
 nnoremap <silent> <leader>zV :call <SID>WhisperTranscribeAndSummarize()<CR>
 nnoremap <silent> <leader>zr :call <SID>WhisperRecordTranscribe()<CR>
 nnoremap <silent> <leader>zR :call <SID>WhisperRecordTranscribeAndSummarize()<CR>
-
