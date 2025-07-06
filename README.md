@@ -50,6 +50,7 @@ All integrated into Vim/Neovim via handy shortcuts and a few dynamic templates.
   - Trigger with `<leader>zv` or call `:call <SID>WhisperTranscribe('file.wav')`.
   - Use `<leader>zV` for transcription **and** an automatic LLM summary.
   - Press `<leader>zr` to **record** with `arecord` for `g:zd_record_seconds` seconds and transcribe.
+  - Press `<leader>zR` to record, transcribe, **and** summarize in one go.
 
 
 - **Templating System**:
@@ -70,7 +71,6 @@ All integrated into Vim/Neovim via handy shortcuts and a few dynamic templates.
   - Install `llama-cli` if you want to use the summary feature.
   - Install `arecord` (from ALSA) to capture audio snippets.
   - Install the `whisper` CLI for compatibility with earlier versions.
-
 
 2. **Plugin File**:
    - Save the plugin script as `vim-zk.vim` in your local plugin directory:
@@ -134,6 +134,24 @@ Set it up like this:
 
 After setup, press `<leader>zv` in Vim/Neovim to transcribe audio files.
 
+## Whisper Setup (optional)
+
+To use the original `whisper` CLI instead of faster-whisper, install it with pip:
+
+```bash
+pip install git+https://github.com/openai/whisper.git
+```
+
+Ensure `whisper` is on your `PATH`, then set:
+
+```vim
+let g:zd_whisper_cmd = 'whisper'
+```
+
+The plugin will invoke it just like the faster-whisper script.
+
+---
+
 ## Usage & Shortcuts ⌨️
 
 Below are the default mappings (`<leader>` often defaults to `\` in Vim, but you can change it in your `.vimrc`):
@@ -157,7 +175,6 @@ Below are the default mappings (`<leader>` often defaults to `\` in Vim, but you
 | `<leader>zV` | **Transcribe + Summarize**: Transcribe and then summarize the audio via `llama-cli`. |
 | `<leader>zr` | **Record & Transcribe**: Record via `arecord` then transcribe. |
 | `<leader>zR` | **Record, Transcribe & Summarize**: Capture audio and generate a summary. |
-
 
 
 ### Example Workflows

@@ -49,7 +49,7 @@ let g:zd_whisper_model = 'large-v3'
 " Command used to run faster-whisper (can include python interpreter)
 let g:zd_whisper_cmd = 'faster-whisper'
 " Seconds to record audio when using arecord
-let g:zd_record_seconds = 20
+let g:zd_record_seconds = 10
 
 " Create top-level directories if they don't exist
 call mkdir(g:zd_dir_daily, 'p')
@@ -849,7 +849,7 @@ function! s:SummarizeRecentDays(...) abort
   else
     echom 'jobstart() not available, running synchronously.'
     let l:summary = system(l:cmd)
-    call <SID>LlamaFinish({ 'file': l:summary_file, 'out': split(l:summary, "\n") }, 0, 0)
+    call <SID>LlamaFinish({ 'file': l:summary_file, 'out': split(l:summary, "\n") }, 0, 0, '')
   endif
 endfunction
 
@@ -859,12 +859,15 @@ function! s:LlamaCollect(ctx, job, data, event) abort
   endif
 endfunction
 
-function! s:LlamaFinish(ctx, job, status) abort
+" Finish callback for llama-cli job. Accept an unused event parameter for
+" compatibility with different Vim/Neovim versions which may pass three values
+" to on_exit.
+function! s:LlamaFinish(ctx, job, status, ...) abort
   if a:ctx.out[-1] ==# ''
     call remove(a:ctx.out, -1)
   endif
   call writefile(a:ctx.out, a:ctx.file)
-  echom 'Summary saved to ' . a:ctx.file
+  echom 'Summary saved to ' . a:ctx.file 
   botright new
   call setline(1, a:ctx.out)
   setlocal buftype=nofile bufhidden=wipe noswapfile
@@ -901,7 +904,8 @@ function! s:SummarizeFile(file, summary_file) abort
     call s:JobStart(l:cmd, l:opts)
   else
     let l:summary = system(l:cmd)
-    call <SID>LlamaFinish({ 'file': a:summary_file, 'out': split(l:summary, "\n") }, 0, 0)
+    call <SID>LlamaFinish({ 'file': a:summary_file, 'out': split(l:summary, "\n") }, 0, 0, '')
+
   endif
 endfunction
 
@@ -940,7 +944,7 @@ function! s:_WhisperTranscribe(audio, summary) abort
     echom 'jobstart() not available, running synchronously.'
     call system(l:cmd)
     call <SID>WhisperFinish({ 'file': l:out_file, 'summary': a:summary,
-          \ 'summary_file': (a:summary ? g:zd_dir_summaries . '/' . fnamemodify(a:audio, ':t:r') . '_summary.txt' : '') }, 0, 0)
+          \ 'summary_file': (a:summary ? g:zd_dir_summaries . '/' . fnamemodify(a:audio, ':t:r') . '_summary.txt' : '') }, 0, 0, '')
   endif
 endfunction
 
@@ -970,7 +974,9 @@ function! s:WhisperTranscribeAndSummarize(...) abort
   call s:_WhisperTranscribe(l:audio, 1)
 endfunction
 
-function! s:WhisperFinish(ctx, job, status) abort
+" Callback after faster-whisper completes. Accept an optional event argument
+" because Neovim passes three parameters (job, status, event) to on_exit.
+function! s:WhisperFinish(ctx, job, status, ...) abort
   echom 'Transcription saved to ' . a:ctx.file
   execute 'edit ' . fnameescape(a:ctx.file)
   if get(a:ctx, 'summary', 0)
@@ -990,13 +996,15 @@ function! s:_WhisperRecord(summary) abort
     call s:JobStart(l:cmd, l:opts)
   else
     call system(l:cmd)
-    call <SID>RecordFinish({ 'audio': l:audio, 'summary': a:summary }, 0, 0)
+    call <SID>RecordFinish({ 'audio': l:audio, 'summary': a:summary }, 0, 0, '')
 
   endif
   call s:_WhisperTranscribe(l:audio, 1)
 endfunction
 
-function! s:RecordFinish(ctx, job, status) abort
+" Called after arecord finishes to kick off transcription. Accept a dummy event
+" argument for compatibility with Neovim's on_exit callback.
+function! s:RecordFinish(ctx, job, status, ...) abort
   echom 'Recording saved to ' . a:ctx.audio
   call s:_WhisperTranscribe(a:ctx.audio, a:ctx.summary)
 endfunction
@@ -1004,6 +1012,15 @@ endfunction
 function! s:WhisperRecordTranscribe() abort
   call s:_WhisperRecord(0)
 endfunction
+
+function! s:WhisperRecordTranscribeAndSummarize() abort
+  call s:_WhisperRecord(1)
+endfunction
+
+nnoremap <silent> <leader>zv :call <SID>WhisperTranscribe()<CR>
+nnoremap <silent> <leader>zV :call <SID>WhisperTranscribeAndSummarize()<CR>
+nnoremap <silent> <leader>zr :call <SID>WhisperRecordTranscribe()<CR>
+nnoremap <silent> <leader>zR :call <SID>WhisperRecordTranscribeAndSummarize()<CR>
 
 function! s:WhisperRecordTranscribeAndSummarize() abort
   call s:_WhisperRecord(1)
