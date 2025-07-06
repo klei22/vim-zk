@@ -42,6 +42,11 @@ All integrated into Vim/Neovim via handy shortcuts and a few dynamic templates.
   - Trigger with `<leader>zs` for the last day or call `:call <SID>SummarizeRecentDays(n)` for `n` days.
   - `:call <SID>SummarizeRecentWeeks(n)` summarizes `n` weeks (7×n days).
   - Runs asynchronously so you can keep editing while `llama-cli` works.
+- **Whisper Transcription**:
+  - Uses the `whisper` CLI with the `large-v3` model for wide vocabulary.
+  - CUDA accelerated and runs asynchronously similar to the summarizer.
+  - Transcripts are saved under `~/.zd/transcripts/`.
+  - Trigger with `<leader>zv` or call `:call <SID>WhisperTranscribe('file.wav')`.
 
 - **Templating System**:
   - Store your own markdown templates in `~/.zd/templates/` (e.g. `daily.md`, `weekly.md`, etc.).
@@ -101,6 +106,7 @@ Below are the default mappings (`<leader>` often defaults to `\` in Vim, but you
 | `<leader>zp` | **Open/Prompt for Project**: Creates or opens a project’s `main_project.md`.                 |
 | `<leader>zP` | **Open Projects Index**: Opens the master `projects.md` listing all created projects.        |
 | `<leader>zs` | **Summarize Dailies**: Asynchronously run `llama-cli` on the last day (or use `:call <SID>SummarizeRecentDays(n)` for more) and store the result. |
+| `<leader>zv` | **Whisper Transcribe**: Convert an audio file to text using the CUDA-accelerated `whisper` CLI. |
 
 
 ### Example Workflows
@@ -115,6 +121,9 @@ Below are the default mappings (`<leader>` often defaults to `\` in Vim, but you
    - Press `<leader>zp` → type “MyAwesomeProject.”
    - A new folder `~/.zd/projects/MyAwesomeProject/` is made, along with `main_project.md` from a template.
    - A link `[MyAwesomeProject](MyAwesomeProject/main_project.md)` is added to `projects.md`.
+4. **Transcribe a Voice Note**:
+   - Record an audio snippet, then press `<leader>zv` and enter the file path.
+   - The transcript opens in a new buffer once `whisper` finishes.
 
 ---
 
@@ -134,6 +143,8 @@ By default, the plugin organizes notes under `~/.zd/`:
   ├─ projects/
   │   ├─ projects.md   <-- Master project index
   │   └─ <ProjectName>/main_project.md
+  ├─ transcripts/
+  │   └─ <audio>.txt
   └─ templates/
       ├─ daily.md
       ├─ weekly.md

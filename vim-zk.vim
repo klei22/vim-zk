@@ -23,6 +23,7 @@ let g:zd_dir_areas = g:zd_dir . '/areas'  " <--- For organizing projects
 let g:zd_dir_resources = g:zd_dir . '/resources'  " <--- shared resources
 let g:zd_dir_archives= g:zd_dir . '/archives'  " <--- old projects, etc, things unused but should keep
 let g:zd_dir_summaries = g:zd_dir . '/summaries'
+let g:zd_dir_transcripts = g:zd_dir . '/transcripts'
 
 " Template filenames
 let g:zd_tpl_daily   = g:zd_dir_templates . '/daily.md'
@@ -42,6 +43,8 @@ let g:zd_areas_index = g:zd_dir_areas . '/areas.md'
 
 " Llama model repo for summaries
 let g:zd_llama_repo = 'unsloth/gemma-3n-E4B-it-GGUF'
+" Whisper model (for speech-to-text)
+let g:zd_whisper_model = 'large-v3'
 
 " Create top-level directories if they don't exist
 call mkdir(g:zd_dir_daily, 'p')
@@ -55,6 +58,7 @@ call mkdir(g:zd_dir_areas, 'p')
 call mkdir(g:zd_dir_resources, 'p')
 call mkdir(g:zd_dir_archives, 'p')
 call mkdir(g:zd_dir_summaries, 'p')
+call mkdir(g:zd_dir_transcripts, 'p')
 
 
 " =============================================================================
@@ -879,4 +883,46 @@ endfunction
 nnoremap <silent> <leader>zs :call <SID>SummarizeRecentDays()<CR>
 nnoremap <silent> <leader>zS5 :call <SID>SummarizeRecentDays(5)<CR>
 nnoremap <silent> <leader>zS2 :call <SID>SummarizeRecentDays(2)<CR>
+
+" =============================================================================
+"                     VOICE-TO-TEXT VIA WHISPER
+" =============================================================================
+
+function! s:WhisperTranscribe(...) abort
+  if a:0 > 0
+    let l:audio = a:1
+  else
+    let l:audio = input('Audio file: ')
+  endif
+  if empty(l:audio)
+    echo 'No audio provided.'
+    return
+  endif
+
+  let l:out_file = g:zd_dir_transcripts . '/' . fnamemodify(l:audio, ':t:r') . '.txt'
+  call mkdir(fnamemodify(l:out_file, ':h'), 'p')
+  let l:cmd = 'whisper ' . shellescape(l:audio) .
+        \ ' --model ' . g:zd_whisper_model .
+        \ ' --device cuda --output_format txt --output_dir ' . shellescape(g:zd_dir_transcripts)
+
+  echom 'Running whisper asynchronously...'
+  if exists('*jobstart') || exists('*job_start')
+    let l:ctx = { 'file': l:out_file }
+    let l:opts = {
+          \ 'stdout_buffered': 1,
+          \ 'on_exit': function('<SID>WhisperFinish', [l:ctx]) }
+    call s:JobStart(l:cmd, l:opts)
+  else
+    echom 'jobstart() not available, running synchronously.'
+    call system(l:cmd)
+    call <SID>WhisperFinish({ 'file': l:out_file }, 0, 0)
+  endif
+endfunction
+
+function! s:WhisperFinish(ctx, job, status) abort
+  echom 'Transcription saved to ' . a:ctx.file
+  execute 'edit ' . fnameescape(a:ctx.file)
+endfunction
+
+nnoremap <silent> <leader>zv :call <SID>WhisperTranscribe()<CR>
 
