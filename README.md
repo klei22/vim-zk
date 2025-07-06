@@ -49,6 +49,8 @@ All integrated into Vim/Neovim via handy shortcuts and a few dynamic templates.
   - Transcripts are saved under `~/.zd/transcripts/`.
   - Trigger with `<leader>zv` or call `:call <SID>WhisperTranscribe('file.wav')`.
   - Use `<leader>zV` for transcription **and** an automatic LLM summary.
+  - Press `<leader>zr` to **record** with `arecord` for `g:zd_record_seconds` seconds and transcribe.
+
 
 - **Templating System**:
   - Store your own markdown templates in `~/.zd/templates/` (e.g. `daily.md`, `weekly.md`, etc.).
@@ -65,8 +67,10 @@ All integrated into Vim/Neovim via handy shortcuts and a few dynamic templates.
 1. **Prerequisites**:
    - You need a running Vim or Neovim environment.
    - This plugin is pure Vimscript; no external dependencies required.
-   - Install `llama-cli` if you want to use the summary feature.
-   - Install the `whisper` CLI for voice transcription.
+  - Install `llama-cli` if you want to use the summary feature.
+  - Install `arecord` (from ALSA) to capture audio snippets.
+  - Install the `whisper` CLI for compatibility with earlier versions.
+
 
 2. **Plugin File**:
    - Save the plugin script as `vim-zk.vim` in your local plugin directory:
@@ -130,8 +134,6 @@ Set it up like this:
 
 After setup, press `<leader>zv` in Vim/Neovim to transcribe audio files.
 
----
-
 ## Usage & Shortcuts ⌨️
 
 Below are the default mappings (`<leader>` often defaults to `\` in Vim, but you can change it in your `.vimrc`):
@@ -153,6 +155,9 @@ Below are the default mappings (`<leader>` often defaults to `\` in Vim, but you
 | `<leader>zs` | **Summarize Dailies**: Asynchronously run `llama-cli` on the last day (or use `:call <SID>SummarizeRecentDays(n)` for more) and store the result. |
 | `<leader>zv` | **Whisper Transcribe**: Convert audio to text using `faster-whisper`. |
 | `<leader>zV` | **Transcribe + Summarize**: Transcribe and then summarize the audio via `llama-cli`. |
+| `<leader>zr` | **Record & Transcribe**: Record via `arecord` then transcribe. |
+| `<leader>zR` | **Record, Transcribe & Summarize**: Capture audio and generate a summary. |
+
 
 
 ### Example Workflows
@@ -167,9 +172,8 @@ Below are the default mappings (`<leader>` often defaults to `\` in Vim, but you
    - Press `<leader>zp` → type “MyAwesomeProject.”
    - A new folder `~/.zd/projects/MyAwesomeProject/` is made, along with `main_project.md` from a template.
    - A link `[MyAwesomeProject](MyAwesomeProject/main_project.md)` is added to `projects.md`.
-4. **Transcribe a Voice Note**:
-   - Record an audio snippet, then press `<leader>zv` and enter the file path.
-   - The transcript opens in a new buffer once `whisper` finishes.
+4. **Record and Transcribe**:
+   - Press `<leader>zr` to capture audio for a few seconds and automatically open the transcript.
 
 ---
 
@@ -191,6 +195,8 @@ By default, the plugin organizes notes under `~/.zd/`:
   │   └─ <ProjectName>/main_project.md
   ├─ transcripts/
   │   └─ <audio>.txt
+  ├─ recordings/
+  │   └─ <timestamp>.wav
   └─ templates/
       ├─ daily.md
       ├─ weekly.md

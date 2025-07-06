@@ -24,6 +24,7 @@ let g:zd_dir_resources = g:zd_dir . '/resources'  " <--- shared resources
 let g:zd_dir_archives= g:zd_dir . '/archives'  " <--- old projects, etc, things unused but should keep
 let g:zd_dir_summaries = g:zd_dir . '/summaries'
 let g:zd_dir_transcripts = g:zd_dir . '/transcripts'
+let g:zd_dir_recordings = g:zd_dir . '/recordings'
 
 " Template filenames
 let g:zd_tpl_daily   = g:zd_dir_templates . '/daily.md'
@@ -47,6 +48,8 @@ let g:zd_llama_repo = 'unsloth/gemma-3n-E4B-it-GGUF'
 let g:zd_whisper_model = 'large-v3'
 " Command used to run faster-whisper (can include python interpreter)
 let g:zd_whisper_cmd = 'faster-whisper'
+" Seconds to record audio when using arecord
+let g:zd_record_seconds = 20
 
 " Create top-level directories if they don't exist
 call mkdir(g:zd_dir_daily, 'p')
@@ -61,6 +64,7 @@ call mkdir(g:zd_dir_resources, 'p')
 call mkdir(g:zd_dir_archives, 'p')
 call mkdir(g:zd_dir_summaries, 'p')
 call mkdir(g:zd_dir_transcripts, 'p')
+call mkdir(g:zd_dir_recordings, 'p')
 
 
 " =============================================================================
@@ -974,6 +978,39 @@ function! s:WhisperFinish(ctx, job, status) abort
   endif
 endfunction
 
+" Record audio using arecord and then transcribe
+function! s:_WhisperRecord(summary) abort
+  let l:audio = g:zd_dir_recordings . '/' . strftime('%Y%m%d-%H%M%S') . '.wav'
+  call mkdir(fnamemodify(l:audio, ':h'), 'p')
+  let l:cmd = 'arecord -f cd -d ' . g:zd_record_seconds . ' ' . shellescape(l:audio)
+  echom 'Recording ' . g:zd_record_seconds . ' seconds of audio...'
+  if exists('*jobstart') || exists('*job_start')
+    let l:ctx = { 'audio': l:audio, 'summary': a:summary }
+    let l:opts = { 'on_exit': function('<SID>RecordFinish', [l:ctx]) }
+    call s:JobStart(l:cmd, l:opts)
+  else
+    call system(l:cmd)
+    call <SID>RecordFinish({ 'audio': l:audio, 'summary': a:summary }, 0, 0)
+
+  endif
+  call s:_WhisperTranscribe(l:audio, 1)
+endfunction
+
+function! s:RecordFinish(ctx, job, status) abort
+  echom 'Recording saved to ' . a:ctx.audio
+  call s:_WhisperTranscribe(a:ctx.audio, a:ctx.summary)
+endfunction
+
+function! s:WhisperRecordTranscribe() abort
+  call s:_WhisperRecord(0)
+endfunction
+
+function! s:WhisperRecordTranscribeAndSummarize() abort
+  call s:_WhisperRecord(1)
+
+endfunction
+
 nnoremap <silent> <leader>zv :call <SID>WhisperTranscribe()<CR>
 nnoremap <silent> <leader>zV :call <SID>WhisperTranscribeAndSummarize()<CR>
-
+nnoremap <silent> <leader>zr :call <SID>WhisperRecordTranscribe()<CR>
+nnoremap <silent> <leader>zR :call <SID>WhisperRecordTranscribeAndSummarize()<CR>
