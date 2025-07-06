@@ -898,19 +898,23 @@ function! s:JobStart(cmd, opts) abort
 endfunction
 
 " Summarize an arbitrary text file using llama-cli
-function! s:SummarizeFile(file, summary_file) abort
+function! s:SummarizeFile(file, summary_file, ...) abort
   if !filereadable(a:file)
     echom 'File not found: ' . a:file
     return
   endif
+  let l:preamble = (a:0 > 0 ? a:1 : 'Summarize the following text:')
+  let l:show_text = (a:0 > 1 ? a:2 : 1)
   let l:lines = readfile(a:file)
   let l:text = join(l:lines, "\n")
-  let l:prompt = 'Summarize the following text:\n' . l:text
+  let l:prompt = l:preamble . "\n" . l:text
+
   let l:cmd = 'llama-cli -hf ' . g:zd_llama_repo . ' -p ' . shellescape(l:prompt)
   call mkdir(fnamemodify(a:summary_file, ':h'), 'p')
   echom 'Running llama-cli asynchronously...'
   if exists('*jobstart') || exists('*job_start')
-    let l:ctx = { 'file': a:summary_file, 'out': [], 'prompt_lines': split(l:text, "\n") }
+    let l:ctx = { 'file': a:summary_file, 'out': [],
+          \ 'prompt_lines': (l:show_text ? split(l:text, "\n") : [l:preamble]) }
     let l:opts = {
           \ 'stdout_buffered': 1,
           \ 'on_stdout': function('<SID>LlamaCollect', [l:ctx]),
@@ -919,7 +923,8 @@ function! s:SummarizeFile(file, summary_file) abort
     call s:JobStart(l:cmd, l:opts)
   else
     let l:summary = system(l:cmd)
-    call <SID>LlamaFinish({ 'file': a:summary_file, 'out': split(l:summary, "\n"), 'prompt_lines': split(l:text, "\n") }, 0, 0, '')
+    call <SID>LlamaFinish({ 'file': a:summary_file, 'out': split(l:summary, "\n"),
+          \ 'prompt_lines': (l:show_text ? split(l:text, "\n") : [l:preamble]) }, 0, 0, '')
   endif
 endfunction
 
@@ -1009,18 +1014,19 @@ function! s:WhisperFinish(ctx, job, status, ...) abort
 endfunction
 
 " Record audio using arecord and then transcribe
-function! s:_WhisperRecord(summary) abort
+function! s:_WhisperRecord() abort
+
   let l:audio = g:zd_dir_recordings . '/' . strftime('%Y%m%d-%H%M%S') . '.wav'
   call mkdir(fnamemodify(l:audio, ':h'), 'p')
   let l:cmd = 'arecord -f cd -d ' . g:zd_record_seconds . ' ' . shellescape(l:audio)
   echom 'Recording ' . g:zd_record_seconds . ' seconds of audio...'
   if exists('*jobstart') || exists('*job_start')
-    let l:ctx = { 'audio': l:audio, 'summary': a:summary }
+    let l:ctx = { 'audio': l:audio }
     let l:opts = { 'on_exit': function('<SID>RecordFinish', [l:ctx]) }
     call s:JobStart(l:cmd, l:opts)
   else
     call system(l:cmd)
-    call <SID>RecordFinish({ 'audio': l:audio, 'summary': a:summary }, 0, 0, '')
+    call <SID>RecordFinish({ 'audio': l:audio }, 0, 0, '')
   endif
   call s:_WhisperTranscribe(l:audio, 1)
 endfunction
@@ -1029,27 +1035,36 @@ endfunction
 " argument for compatibility with Neovim's on_exit callback.
 function! s:RecordFinish(ctx, job, status, ...) abort
   echom 'Recording saved to ' . a:ctx.audio
-  call s:_WhisperTranscribe(a:ctx.audio, a:ctx.summary)
+  call s:_WhisperTranscribe(a:ctx.audio, 0)
 endfunction
 
 function! s:WhisperRecordTranscribe() abort
-  call s:_WhisperRecord(0)
+  call s:_WhisperRecord()
 endfunction
-
-function! s:WhisperRecordTranscribeAndSummarize() abort
-  call s:_WhisperRecord(1)
-endfunction
-
 
 nnoremap <silent> <leader>zr :call <SID>WhisperRecordTranscribe()<CR>
-nnoremap <silent> <leader>zR :call <SID>WhisperRecordTranscribeAndSummarize()<CR>
 
-function! s:WhisperRecordTranscribeAndSummarize() abort
-  call s:_WhisperRecord(1)
-
+" Summarize the current file as bullet points
+function! s:SummarizeCurrentBullet() abort
+  let l:file = expand('%:p')
+  if empty(l:file) || !filereadable(l:file)
+    echo 'No file to summarize.'
+    return
+  endif
+  let l:out = g:zd_dir_summaries . '/' . fnamemodify(l:file, ':t:r') . '_bullet.txt'
+  call s:SummarizeFile(l:file, l:out, 'Summarize the following text as bullet points:', 0)
 endfunction
 
-nnoremap <silent> <leader>zv :call <SID>WhisperTranscribe()<CR>
-nnoremap <silent> <leader>zV :call <SID>WhisperTranscribeAndSummarize()<CR>
-nnoremap <silent> <leader>zr :call <SID>WhisperRecordTranscribe()<CR>
-nnoremap <silent> <leader>zR :call <SID>WhisperRecordTranscribeAndSummarize()<CR>
+" Summarize the current file in markdown format
+function! s:SummarizeCurrentMarkdown() abort
+  let l:file = expand('%:p')
+  if empty(l:file) || !filereadable(l:file)
+    echo 'No file to summarize.'
+    return
+  endif
+  let l:out = g:zd_dir_summaries . '/' . fnamemodify(l:file, ':t:r') . '_summary.md'
+  call s:SummarizeFile(l:file, l:out, 'Summarize the following text in markdown with section headings and bullet points:', 0)
+endfunction
+
+nnoremap <silent> <leader>zB :call <SID>SummarizeCurrentBullet()<CR>
+nnoremap <silent> <leader>zM :call <SID>SummarizeCurrentMarkdown()<CR>
