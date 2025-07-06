@@ -105,6 +105,7 @@ function! s:ProjectsByAreaLines() abort
     return l:out
   endif
   let l:dirs = sort(filter(globpath(g:zd_dir_areas, '*', 1, 1), 'isdirectory(v:val)'))
+
   for l:dir in l:dirs
     let l:area_name = fnamemodify(l:dir, ':t')
     let l:file = l:dir . '/main_area.md'
@@ -793,6 +794,7 @@ function! s:SummarizeRecentDays(...) abort
   let l:days = (a:0 > 0 ? a:1 : 1)
   let l:end_stamp = strftime('%y%m%d')
   let l:start_stamp = strftime('%y%m%d', localtime() - (l:days - 1) * 86400)
+
   let l:all_lines = []
   for i in range(l:days - 1, 0, -1)
     let l:stamp = strftime('%y%m%d', localtime() - i * 86400)
@@ -859,4 +861,6 @@ function! s:SummarizeRecentWeeks(...) abort
 endfunction
 
 nnoremap <silent> <leader>zs :call <SID>SummarizeRecentDays()<CR>
+nnoremap <silent> <leader>zS5 :call <SID>SummarizeRecentDays(5)<CR>
+nnoremap <silent> <leader>zS2 :call <SID>SummarizeRecentDays(2)<CR>
 

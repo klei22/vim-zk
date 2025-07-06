@@ -102,6 +102,7 @@ Below are the default mappings (`<leader>` often defaults to `\` in Vim, but you
 | `<leader>zP` | **Open Projects Index**: Opens the master `projects.md` listing all created projects.        |
 | `<leader>zs` | **Summarize Dailies**: Asynchronously run `llama-cli` on the last day (or use `:call <SID>SummarizeRecentDays(n)` for more) and store the result. |
 
+
 ### Example Workflows
 
 1. **Daily Journaling**:
