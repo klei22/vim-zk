@@ -872,10 +872,18 @@ function! s:LlamaFinish(ctx, job, status, ...) abort
   if a:ctx.out[-1] ==# ''
     call remove(a:ctx.out, -1)
   endif
-  call writefile(a:ctx.out, a:ctx.file)
-  echom 'Summary saved to ' . a:ctx.file 
+  let l:content = ['Prompt:']
+  if has_key(a:ctx, 'prompt_lines')
+    call extend(l:content, a:ctx.prompt_lines)
+  endif
+  call add(l:content, '')
+  call add(l:content, 'Summary:')
+  call extend(l:content, a:ctx.out)
+  call writefile(l:content, a:ctx.file)
+  call s:WrapFile80(a:ctx.file)
+  echom 'Summary saved to ' . a:ctx.file
   botright new
-  call setline(1, a:ctx.out)
+  call setline(1, l:content)
   setlocal buftype=nofile bufhidden=wipe noswapfile
 endfunction
 
@@ -896,12 +904,13 @@ function! s:SummarizeFile(file, summary_file) abort
     return
   endif
   let l:lines = readfile(a:file)
-  let l:prompt = 'Summarize the following text:\n' . join(l:lines, "\n")
+  let l:text = join(l:lines, "\n")
+  let l:prompt = 'Summarize the following text:\n' . l:text
   let l:cmd = 'llama-cli -hf ' . g:zd_llama_repo . ' -p ' . shellescape(l:prompt)
   call mkdir(fnamemodify(a:summary_file, ':h'), 'p')
   echom 'Running llama-cli asynchronously...'
   if exists('*jobstart') || exists('*job_start')
-    let l:ctx = { 'file': a:summary_file, 'out': [] }
+    let l:ctx = { 'file': a:summary_file, 'out': [], 'prompt_lines': split(l:text, "\n") }
     let l:opts = {
           \ 'stdout_buffered': 1,
           \ 'on_stdout': function('<SID>LlamaCollect', [l:ctx]),
@@ -910,7 +919,7 @@ function! s:SummarizeFile(file, summary_file) abort
     call s:JobStart(l:cmd, l:opts)
   else
     let l:summary = system(l:cmd)
-    call <SID>LlamaFinish({ 'file': a:summary_file, 'out': split(l:summary, "\n") }, 0, 0, '')
+    call <SID>LlamaFinish({ 'file': a:summary_file, 'out': split(l:summary, "\n"), 'prompt_lines': split(l:text, "\n") }, 0, 0, '')
   endif
 endfunction
 
@@ -992,7 +1001,6 @@ endfunction
 
 function! s:WhisperFinish(ctx, job, status, ...) abort
   call s:WrapFile80(a:ctx.file)
-
   echom 'Transcription saved to ' . a:ctx.file
   execute 'botright vsplit ' . fnameescape(a:ctx.file)
   if get(a:ctx, 'summary', 0)
@@ -1031,6 +1039,7 @@ endfunction
 function! s:WhisperRecordTranscribeAndSummarize() abort
   call s:_WhisperRecord(1)
 endfunction
+
 
 nnoremap <silent> <leader>zr :call <SID>WhisperRecordTranscribe()<CR>
 nnoremap <silent> <leader>zR :call <SID>WhisperRecordTranscribeAndSummarize()<CR>

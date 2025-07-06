@@ -51,6 +51,7 @@ All integrated into Vim/Neovim via handy shortcuts and a few dynamic templates.
   - Call `:call <SID>WhisperTranscribe('file.wav')` to convert existing audio.
   - Press `<leader>zr` to **record** with `arecord` for `g:zd_record_seconds` seconds and transcribe.
   - Press `<leader>zR` to record, transcribe, **and** summarize in one go.
+  - Summary buffers show the transcript text followed by the LLM's summary.
 
 - **Templating System**:
   - Store your own markdown templates in `~/.zd/templates/` (e.g. `daily.md`, `weekly.md`, etc.).
