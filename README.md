@@ -52,6 +52,7 @@ All integrated into Vim/Neovim via handy shortcuts and a few dynamic templates.
   - Press `<leader>zr` to **record** with `arecord` for `g:zd_record_seconds` seconds and transcribe.
   - Press `<leader>zR` to record, transcribe, **and** summarize in one go.
 
+
 - **Templating System**:
   - Store your own markdown templates in `~/.zd/templates/` (e.g. `daily.md`, `weekly.md`, etc.).
   - The plugin replaces placeholders like `{{TODAY}}`, `{{READABLE_DATE}}`, `{{PROJECT_NAME}}`, etc.
