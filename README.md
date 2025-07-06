@@ -47,11 +47,11 @@ All integrated into Vim/Neovim via handy shortcuts and a few dynamic templates.
   - Command configured via `g:zd_whisper_cmd` (defaults to `faster-whisper`).
   - CUDA accelerated and runs asynchronously similar to the summarizer.
   - Transcripts are saved under `~/.zd/transcripts/`.
+  - Results open in split windows so you can keep editing while they load.
   - Trigger with `<leader>zv` or call `:call <SID>WhisperTranscribe('file.wav')`.
   - Use `<leader>zV` for transcription **and** an automatic LLM summary.
   - Press `<leader>zr` to **record** with `arecord` for `g:zd_record_seconds` seconds and transcribe.
   - Press `<leader>zR` to record, transcribe, **and** summarize in one go.
-
 
 - **Templating System**:
   - Store your own markdown templates in `~/.zd/templates/` (e.g. `daily.md`, `weekly.md`, etc.).
@@ -133,6 +133,7 @@ Set it up like this:
 5. Optionally tweak the model by setting `g:zd_whisper_model` (defaults to `large-v3`).
 
 After setup, press `<leader>zv` in Vim/Neovim to transcribe audio files.
+The transcript (and optional summary) will appear in dedicated split windows.
 
 ## Whisper Setup (optional)
 
@@ -155,6 +156,8 @@ The plugin will invoke it just like the faster-whisper script.
 ## Usage & Shortcuts ⌨️
 
 Below are the default mappings (`<leader>` often defaults to `\` in Vim, but you can change it in your `.vimrc`):
+
+16:08❯ cat 20250706-160749.txt
 
 | Mapping      | Action                                                                                       |
 |:------------:|----------------------------------------------------------------------------------------------|
@@ -226,7 +229,9 @@ You can change these paths in the plugin code if you prefer.
 
 ## Templates 📝
 
-Each note type can have a markdown template in `~/.zd/templates/<type>.md`. For instance, a **daily note** template might look like:
+Each note type can have a markdown template in `~/.zd/templates/
+16:08❯ cat 20250706-160749.txt
+<type>.md`. For instance, a **daily note** template might look like:
 
 ```markdown
 # Daily Note {{TODAY}}

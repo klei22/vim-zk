@@ -445,7 +445,9 @@ function! s:AddTodo() abort
   let l:todo_id = strftime('%Y%m%d%H%M%S')
   let l:todo_filename = g:zd_dir_todos . '/' . l:todo_id . '.md'
   let l:note_lines = [
-  \ '# TODO Note: ' . l:todo_id,
+  \ '# TODO Note: '
+16:08❯ cat 20250706-160749.txt
+ . l:todo_id,
   \ '',
   \ 'Created: ' . strftime('%Y-%m-%d %H:%M:%S'),
   \ '',
@@ -526,6 +528,8 @@ function! s:OpenDoneTodos() abort
   if !filereadable(g:zd_done_todos)
     call writefile(['# Done TODOS', ''], g:zd_done_todos)
   endif
+16:08❯ cat 20250706-160749.txt
+
   execute 'edit ' . fnameescape(g:zd_done_todos)
 endfunction
 
@@ -611,6 +615,8 @@ function! s:OpenProject(...) abort
   if !isdirectory(l:dir)
     call mkdir(l:dir, 'p')
   endif
+
+16:08❯ cat 20250706-160749.txt
 
   " If not exist, create from template or fallback
   if !filereadable(l:file)
@@ -978,7 +984,7 @@ endfunction
 " because Neovim passes three parameters (job, status, event) to on_exit.
 function! s:WhisperFinish(ctx, job, status, ...) abort
   echom 'Transcription saved to ' . a:ctx.file
-  execute 'edit ' . fnameescape(a:ctx.file)
+  execute 'botright vsplit ' . fnameescape(a:ctx.file)
   if get(a:ctx, 'summary', 0)
     call s:SummarizeFile(a:ctx.file, a:ctx.summary_file)
   endif
