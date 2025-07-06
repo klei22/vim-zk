@@ -157,6 +157,8 @@ The plugin will invoke it just like the faster-whisper script.
 
 Below are the default mappings (`<leader>` often defaults to `\` in Vim, but you can change it in your `.vimrc`):
 
+16:08❯ cat 20250706-160749.txt
+
 | Mapping      | Action                                                                                       |
 |:------------:|----------------------------------------------------------------------------------------------|
 | `<leader>zd` | **Daily Note**: Open (or create) your daily note, `~/.zd/daily/YYMMDD.md`.                   |
@@ -227,7 +229,9 @@ You can change these paths in the plugin code if you prefer.
 
 ## Templates 📝
 
-Each note type can have a markdown template in `~/.zd/templates/<type>.md`. For instance, a **daily note** template might look like:
+Each note type can have a markdown template in `~/.zd/templates/
+16:08❯ cat 20250706-160749.txt
+<type>.md`. For instance, a **daily note** template might look like:
 
 ```markdown
 # Daily Note {{TODAY}}

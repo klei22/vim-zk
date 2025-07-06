@@ -445,7 +445,9 @@ function! s:AddTodo() abort
   let l:todo_id = strftime('%Y%m%d%H%M%S')
   let l:todo_filename = g:zd_dir_todos . '/' . l:todo_id . '.md'
   let l:note_lines = [
-  \ '# TODO Note: ' . l:todo_id,
+  \ '# TODO Note: '
+16:08❯ cat 20250706-160749.txt
+ . l:todo_id,
   \ '',
   \ 'Created: ' . strftime('%Y-%m-%d %H:%M:%S'),
   \ '',
@@ -526,6 +528,8 @@ function! s:OpenDoneTodos() abort
   if !filereadable(g:zd_done_todos)
     call writefile(['# Done TODOS', ''], g:zd_done_todos)
   endif
+16:08❯ cat 20250706-160749.txt
+
   execute 'edit ' . fnameescape(g:zd_done_todos)
 endfunction
 
@@ -611,6 +615,8 @@ function! s:OpenProject(...) abort
   if !isdirectory(l:dir)
     call mkdir(l:dir, 'p')
   endif
+
+16:08❯ cat 20250706-160749.txt
 
   " If not exist, create from template or fallback
   if !filereadable(l:file)
@@ -867,7 +873,7 @@ function! s:LlamaFinish(ctx, job, status, ...) abort
     call remove(a:ctx.out, -1)
   endif
   call writefile(a:ctx.out, a:ctx.file)
-  echom 'Summary saved to ' . a:ctx.file
+  echom 'Summary saved to ' . a:ctx.file 
   botright new
   call setline(1, a:ctx.out)
   setlocal buftype=nofile bufhidden=wipe noswapfile
@@ -905,6 +911,7 @@ function! s:SummarizeFile(file, summary_file) abort
   else
     let l:summary = system(l:cmd)
     call <SID>LlamaFinish({ 'file': a:summary_file, 'out': split(l:summary, "\n") }, 0, 0, '')
+
   endif
 endfunction
 
@@ -996,7 +1003,9 @@ function! s:_WhisperRecord(summary) abort
   else
     call system(l:cmd)
     call <SID>RecordFinish({ 'audio': l:audio, 'summary': a:summary }, 0, 0, '')
+
   endif
+  call s:_WhisperTranscribe(l:audio, 1)
 endfunction
 
 " Called after arecord finishes to kick off transcription. Accept a dummy event
@@ -1019,3 +1028,12 @@ nnoremap <silent> <leader>zV :call <SID>WhisperTranscribeAndSummarize()<CR>
 nnoremap <silent> <leader>zr :call <SID>WhisperRecordTranscribe()<CR>
 nnoremap <silent> <leader>zR :call <SID>WhisperRecordTranscribeAndSummarize()<CR>
 
+function! s:WhisperRecordTranscribeAndSummarize() abort
+  call s:_WhisperRecord(1)
+
+endfunction
+
+nnoremap <silent> <leader>zv :call <SID>WhisperTranscribe()<CR>
+nnoremap <silent> <leader>zV :call <SID>WhisperTranscribeAndSummarize()<CR>
+nnoremap <silent> <leader>zr :call <SID>WhisperRecordTranscribe()<CR>
+nnoremap <silent> <leader>zR :call <SID>WhisperRecordTranscribeAndSummarize()<CR>
