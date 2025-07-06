@@ -55,6 +55,7 @@ All integrated into Vim/Neovim via handy shortcuts and a few dynamic templates.
   - `<leader>zB` summarizes the current file into a bullet list using `llama-cli`.
   - `<leader>zM` summarizes the current file as structured Markdown with headings.
 
+
 - **Templating System**:
   - Store your own markdown templates in `~/.zd/templates/` (e.g. `daily.md`, `weekly.md`, etc.).
   - The plugin replaces placeholders like `{{TODAY}}`, `{{READABLE_DATE}}`, `{{PROJECT_NAME}}`, etc.
@@ -160,6 +161,8 @@ The plugin will invoke it just like the faster-whisper script.
 
 Below are the default mappings (`<leader>` often defaults to `\` in Vim, but you can change it in your `.vimrc`):
 
+16:08❯ cat 20250706-160749.txt
+
 | Mapping      | Action                                                                                       |
 |:------------:|----------------------------------------------------------------------------------------------|
 | `<leader>zd` | **Daily Note**: Open (or create) your daily note, `~/.zd/daily/YYMMDD.md`.                   |
@@ -178,7 +181,6 @@ Below are the default mappings (`<leader>` often defaults to `\` in Vim, but you
 | `<leader>zr` | **Record & Transcribe**: Record via `arecord` then transcribe. |
 | `<leader>zB` | **Summarize File (Bullets)**: Generate a bullet list summary of the current file. |
 | `<leader>zM` | **Summarize File (Markdown)**: Summarize the current file with Markdown headings. |
-
 
 ### Example Workflows
 
@@ -229,7 +231,9 @@ You can change these paths in the plugin code if you prefer.
 
 ## Templates 📝
 
-Each note type can have a markdown template in `~/.zd/templates/<type>.md`. For instance, a **daily note** template might look like:
+Each note type can have a markdown template in `~/.zd/templates/
+16:08❯ cat 20250706-160749.txt
+<type>.md`. For instance, a **daily note** template might look like:
 
 ```markdown
 # Daily Note {{TODAY}}

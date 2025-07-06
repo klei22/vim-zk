@@ -445,7 +445,9 @@ function! s:AddTodo() abort
   let l:todo_id = strftime('%Y%m%d%H%M%S')
   let l:todo_filename = g:zd_dir_todos . '/' . l:todo_id . '.md'
   let l:note_lines = [
-  \ '# TODO Note: ' . l:todo_id,
+  \ '# TODO Note: '
+16:08❯ cat 20250706-160749.txt
+ . l:todo_id,
   \ '',
   \ 'Created: ' . strftime('%Y-%m-%d %H:%M:%S'),
   \ '',
@@ -526,6 +528,8 @@ function! s:OpenDoneTodos() abort
   if !filereadable(g:zd_done_todos)
     call writefile(['# Done TODOS', ''], g:zd_done_todos)
   endif
+16:08❯ cat 20250706-160749.txt
+
   execute 'edit ' . fnameescape(g:zd_done_todos)
 endfunction
 
@@ -611,6 +615,8 @@ function! s:OpenProject(...) abort
   if !isdirectory(l:dir)
     call mkdir(l:dir, 'p')
   endif
+
+16:08❯ cat 20250706-160749.txt
 
   " If not exist, create from template or fallback
   if !filereadable(l:file)
@@ -902,6 +908,7 @@ function! s:SummarizeFile(file, summary_file, ...) abort
   let l:lines = readfile(a:file)
   let l:text = join(l:lines, "\n")
   let l:prompt = l:preamble . "\n" . l:text
+
   let l:cmd = 'llama-cli -hf ' . g:zd_llama_repo . ' -p ' . shellescape(l:prompt)
   call mkdir(fnamemodify(a:summary_file, ':h'), 'p')
   echom 'Running llama-cli asynchronously...'
@@ -1008,6 +1015,7 @@ endfunction
 
 " Record audio using arecord and then transcribe
 function! s:_WhisperRecord() abort
+
   let l:audio = g:zd_dir_recordings . '/' . strftime('%Y%m%d-%H%M%S') . '.wav'
   call mkdir(fnamemodify(l:audio, ':h'), 'p')
   let l:cmd = 'arecord -f cd -d ' . g:zd_record_seconds . ' ' . shellescape(l:audio)
@@ -1020,6 +1028,7 @@ function! s:_WhisperRecord() abort
     call system(l:cmd)
     call <SID>RecordFinish({ 'audio': l:audio }, 0, 0, '')
   endif
+  call s:_WhisperTranscribe(l:audio, 1)
 endfunction
 
 " Called after arecord finishes to kick off transcription. Accept a dummy event
