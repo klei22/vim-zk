@@ -104,7 +104,8 @@ function! s:ProjectsByAreaLines() abort
   if !isdirectory(g:zd_dir_areas)
     return l:out
   endif
-  let l:dirs = sort(filter(split(globpath(g:zd_dir_areas, '*', 1, 1), '\n'), 'isdirectory(v:val)'))
+  let l:dirs = sort(filter(globpath(g:zd_dir_areas, '*', 1, 1), 'isdirectory(v:val)'))
+
   for l:dir in l:dirs
     let l:area_name = fnamemodify(l:dir, ':t')
     let l:file = l:dir . '/main_area.md'
@@ -860,5 +861,6 @@ function! s:SummarizeRecentWeeks(...) abort
 endfunction
 
 nnoremap <silent> <leader>zs :call <SID>SummarizeRecentDays()<CR>
-nnoremap <silent> <leader>zS :call <SID>SummarizeRecentDays(5)<CR>
+nnoremap <silent> <leader>zS5 :call <SID>SummarizeRecentDays(5)<CR>
+nnoremap <silent> <leader>zS2 :call <SID>SummarizeRecentDays(2)<CR>
 
