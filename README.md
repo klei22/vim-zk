@@ -48,8 +48,7 @@ All integrated into Vim/Neovim via handy shortcuts and a few dynamic templates.
   - CUDA accelerated and runs asynchronously similar to the summarizer.
   - Transcripts are saved under `~/.zd/transcripts/`.
   - Results open in split windows so you can keep editing while they load.
-  - Trigger with `<leader>zv` or call `:call <SID>WhisperTranscribe('file.wav')`.
-  - Use `<leader>zV` for transcription **and** an automatic LLM summary.
+  - Call `:call <SID>WhisperTranscribe('file.wav')` to convert existing audio.
   - Press `<leader>zr` to **record** with `arecord` for `g:zd_record_seconds` seconds and transcribe.
   - Press `<leader>zR` to record, transcribe, **and** summarize in one go.
 
@@ -132,8 +131,9 @@ Set it up like this:
    (If you installed `faster-whisper` system-wide, leave it as the default.)
 5. Optionally tweak the model by setting `g:zd_whisper_model` (defaults to `large-v3`).
 
-After setup, press `<leader>zv` in Vim/Neovim to transcribe audio files.
-The transcript (and optional summary) will appear in dedicated split windows.
+After setup, press `<leader>zr` to record and transcribe, or call
+`WhisperTranscribe('path/to/file.wav')` for existing audio. The transcript (and
+optional summary) will appear in dedicated split windows.
 
 ## Whisper Setup (optional)
 
@@ -174,8 +174,6 @@ Below are the default mappings (`<leader>` often defaults to `\` in Vim, but you
 | `<leader>zp` | **Open/Prompt for Project**: Creates or opens a project’s `main_project.md`.                 |
 | `<leader>zP` | **Open Projects Index**: Opens the master `projects.md` listing all created projects.        |
 | `<leader>zs` | **Summarize Dailies**: Asynchronously run `llama-cli` on the last day (or use `:call <SID>SummarizeRecentDays(n)` for more) and store the result. |
-| `<leader>zv` | **Whisper Transcribe**: Convert audio to text using `faster-whisper`. |
-| `<leader>zV` | **Transcribe + Summarize**: Transcribe and then summarize the audio via `llama-cli`. |
 | `<leader>zr` | **Record & Transcribe**: Record via `arecord` then transcribe. |
 | `<leader>zR` | **Record, Transcribe & Summarize**: Capture audio and generate a summary. |
 

@@ -911,7 +911,6 @@ function! s:SummarizeFile(file, summary_file) abort
   else
     let l:summary = system(l:cmd)
     call <SID>LlamaFinish({ 'file': a:summary_file, 'out': split(l:summary, "\n") }, 0, 0, '')
-
   endif
 endfunction
 
@@ -982,7 +981,18 @@ endfunction
 
 " Callback after faster-whisper completes. Accept an optional event argument
 " because Neovim passes three parameters (job, status, event) to on_exit.
+" Reformat a text file to 80 columns using `fold -s` if available
+function! s:WrapFile80(file) abort
+  if filereadable(a:file) && executable('fold')
+    let l:tmp = tempname()
+    call system('fold -s -w 80 ' . shellescape(a:file) . ' > ' . shellescape(l:tmp))
+    call rename(l:tmp, a:file)
+  endif
+endfunction
+
 function! s:WhisperFinish(ctx, job, status, ...) abort
+  call s:WrapFile80(a:ctx.file)
+
   echom 'Transcription saved to ' . a:ctx.file
   execute 'botright vsplit ' . fnameescape(a:ctx.file)
   if get(a:ctx, 'summary', 0)
@@ -1003,7 +1013,6 @@ function! s:_WhisperRecord(summary) abort
   else
     call system(l:cmd)
     call <SID>RecordFinish({ 'audio': l:audio, 'summary': a:summary }, 0, 0, '')
-
   endif
   call s:_WhisperTranscribe(l:audio, 1)
 endfunction
@@ -1023,8 +1032,6 @@ function! s:WhisperRecordTranscribeAndSummarize() abort
   call s:_WhisperRecord(1)
 endfunction
 
-nnoremap <silent> <leader>zv :call <SID>WhisperTranscribe()<CR>
-nnoremap <silent> <leader>zV :call <SID>WhisperTranscribeAndSummarize()<CR>
 nnoremap <silent> <leader>zr :call <SID>WhisperRecordTranscribe()<CR>
 nnoremap <silent> <leader>zR :call <SID>WhisperRecordTranscribeAndSummarize()<CR>
 
