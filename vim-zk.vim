@@ -44,6 +44,9 @@ let g:zd_areas_index = g:zd_dir_areas . '/areas.md'
 
 " Llama model repo for summaries
 let g:zd_llama_repo = 'unsloth/gemma-3n-E4B-it-GGUF'
+" Token printed by llama-cli to indicate the end of output
+let g:zd_llama_end_token = '<END_OF_SUMMARY>'
+
 " faster-whisper model (for speech-to-text)
 let g:zd_whisper_model = 'large-v3'
 " Command used to run faster-whisper (can include python interpreter)
@@ -840,12 +843,14 @@ function! s:SummarizeRecentDays(...) abort
     return
   endif
   let l:prompt = 'Summarize the following notes:\n' . join(l:all_lines, "\n")
+  let l:end_token = g:zd_llama_end_token
+  let l:prompt .= "\nFinish by outputting " . l:end_token
   let l:cmd = 'llama-cli -hf ' . g:zd_llama_repo . ' -p ' . shellescape(l:prompt)
   let l:summary_file = g:zd_dir_summaries . '/' . l:start_stamp . '_' . l:end_stamp . '.txt'
   call mkdir(fnamemodify(l:summary_file, ':h'), 'p')
   echom 'Running llama-cli asynchronously...'
   if exists('*jobstart') || exists('*job_start')
-    let l:ctx = { 'file': l:summary_file, 'out': [] }
+    let l:ctx = { 'file': l:summary_file, 'out': [], 'end_token': l:end_token }
     let l:opts = {
           \ 'stdout_buffered': 1,
           \ 'on_stdout': function('<SID>LlamaCollect', [l:ctx]),
@@ -855,13 +860,24 @@ function! s:SummarizeRecentDays(...) abort
   else
     echom 'jobstart() not available, running synchronously.'
     let l:summary = system(l:cmd)
-    call <SID>LlamaFinish({ 'file': l:summary_file, 'out': split(l:summary, "\n") }, 0, 0, '')
+    call <SID>LlamaFinish({ 'file': l:summary_file, 'out': split(l:summary, "\n"),
+          \ 'end_token': l:end_token }, 0, 0, '')
   endif
 endfunction
 
 function! s:LlamaCollect(ctx, job, data, event) abort
   if a:event ==# 'stdout' || a:event ==# 'stderr'
-    call extend(a:ctx.out, a:data)
+    for l:line in a:data
+      if l:line =~ a:ctx.end_token
+        let l:line = substitute(l:line, a:ctx.end_token, '', 'g')
+        if !empty(l:line)
+          call add(a:ctx.out, l:line)
+        endif
+        call s:JobStop(a:job)
+        return
+      endif
+      call add(a:ctx.out, l:line)
+    endfor
   endif
 endfunction
 
@@ -869,8 +885,9 @@ endfunction
 " compatibility with different Vim/Neovim versions which may pass three values
 " to on_exit.
 function! s:LlamaFinish(ctx, job, status, ...) abort
-  if a:ctx.out[-1] ==# ''
-    call remove(a:ctx.out, -1)
+  let l:out = map(copy(a:ctx.out), {_, v -> substitute(v, a:ctx.end_token, '', 'g')})
+  if l:out[-1] ==# ''
+    call remove(l:out, -1)
   endif
   let l:content = ['Prompt:']
   if has_key(a:ctx, 'prompt_lines')
@@ -878,7 +895,8 @@ function! s:LlamaFinish(ctx, job, status, ...) abort
   endif
   call add(l:content, '')
   call add(l:content, 'Summary:')
-  call extend(l:content, a:ctx.out)
+  call extend(l:content, l:out)
+
   call writefile(l:content, a:ctx.file)
   call s:WrapFile80(a:ctx.file)
   echom 'Summary saved to ' . a:ctx.file
@@ -897,6 +915,15 @@ function! s:JobStart(cmd, opts) abort
   endif
 endfunction
 
+function! s:JobStop(job) abort
+  if exists('*jobstop')
+    call jobstop(a:job)
+  elseif exists('*job_stop')
+    call job_stop(a:job)
+  endif
+endfunction
+
+
 " Summarize an arbitrary text file using llama-cli
 function! s:SummarizeFile(file, summary_file, ...) abort
   if !filereadable(a:file)
@@ -904,17 +931,19 @@ function! s:SummarizeFile(file, summary_file, ...) abort
     return
   endif
   let l:preamble = (a:0 > 0 ? a:1 : 'Summarize the following text:')
+  let l:end_token = g:zd_llama_end_token
   let l:show_text = (a:0 > 1 ? a:2 : 1)
   let l:lines = readfile(a:file)
   let l:text = join(l:lines, "\n")
-  let l:prompt = l:preamble . "\n" . l:text
+  let l:prompt = l:preamble . "\n" . l:text . "\nFinish by outputting " . l:end_token
 
   let l:cmd = 'llama-cli -hf ' . g:zd_llama_repo . ' -p ' . shellescape(l:prompt)
   call mkdir(fnamemodify(a:summary_file, ':h'), 'p')
   echom 'Running llama-cli asynchronously...'
   if exists('*jobstart') || exists('*job_start')
     let l:ctx = { 'file': a:summary_file, 'out': [],
-          \ 'prompt_lines': (l:show_text ? split(l:text, "\n") : [l:preamble]) }
+          \ 'prompt_lines': (l:show_text ? split(l:text, "\n") : [l:preamble]),
+          \ 'end_token': l:end_token }
     let l:opts = {
           \ 'stdout_buffered': 1,
           \ 'on_stdout': function('<SID>LlamaCollect', [l:ctx]),
@@ -924,7 +953,8 @@ function! s:SummarizeFile(file, summary_file, ...) abort
   else
     let l:summary = system(l:cmd)
     call <SID>LlamaFinish({ 'file': a:summary_file, 'out': split(l:summary, "\n"),
-          \ 'prompt_lines': (l:show_text ? split(l:text, "\n") : [l:preamble]) }, 0, 0, '')
+          \ 'prompt_lines': (l:show_text ? split(l:text, "\n") : [l:preamble]),
+          \ 'end_token': l:end_token }, 0, 0, '')
   endif
 endfunction
 
@@ -1014,19 +1044,19 @@ function! s:WhisperFinish(ctx, job, status, ...) abort
 endfunction
 
 " Record audio using arecord and then transcribe
-function! s:_WhisperRecord() abort
-
+function! s:_WhisperRecord(...) abort
+  let l:summary = (a:0 > 0 ? a:1 : 0)
   let l:audio = g:zd_dir_recordings . '/' . strftime('%Y%m%d-%H%M%S') . '.wav'
   call mkdir(fnamemodify(l:audio, ':h'), 'p')
   let l:cmd = 'arecord -f cd -d ' . g:zd_record_seconds . ' ' . shellescape(l:audio)
   echom 'Recording ' . g:zd_record_seconds . ' seconds of audio...'
   if exists('*jobstart') || exists('*job_start')
-    let l:ctx = { 'audio': l:audio }
+    let l:ctx = { 'audio': l:audio, 'summary': l:summary }
     let l:opts = { 'on_exit': function('<SID>RecordFinish', [l:ctx]) }
     call s:JobStart(l:cmd, l:opts)
   else
     call system(l:cmd)
-    call <SID>RecordFinish({ 'audio': l:audio }, 0, 0, '')
+    call <SID>RecordFinish({ 'audio': l:audio, 'summary': l:summary }, 0, 0, '')
   endif
   call s:_WhisperTranscribe(l:audio, 1)
 endfunction
@@ -1035,14 +1065,20 @@ endfunction
 " argument for compatibility with Neovim's on_exit callback.
 function! s:RecordFinish(ctx, job, status, ...) abort
   echom 'Recording saved to ' . a:ctx.audio
-  call s:_WhisperTranscribe(a:ctx.audio, 0)
+  call s:_WhisperTranscribe(a:ctx.audio, get(a:ctx, 'summary', 0))
 endfunction
 
 function! s:WhisperRecordTranscribe() abort
-  call s:_WhisperRecord()
+  call s:_WhisperRecord(0)
+endfunction
+
+function! s:WhisperRecordTranscribeAndSummarize() abort
+  call s:_WhisperRecord(1)
 endfunction
 
 nnoremap <silent> <leader>zr :call <SID>WhisperRecordTranscribe()<CR>
+nnoremap <silent> <leader>zR :call <SID>WhisperRecordTranscribeAndSummarize()<CR>
+
 
 " Summarize the current file as bullet points
 function! s:SummarizeCurrentBullet() abort

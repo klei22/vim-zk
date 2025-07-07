@@ -38,6 +38,7 @@ All integrated into Vim/Neovim via handy shortcuts and a few dynamic templates.
 - **Llama Summaries**:
   - Use `llama-cli` to generate a summary of recent daily notes.
   - Set `g:zd_llama_repo` to select the model repository.
+  - `g:zd_llama_end_token` defines a word printed at the end of every summary so the job closes cleanly.
   - Summaries are saved under `~/.zd/summaries/<start>_<end>.txt` (customize via `g:zd_dir_summaries`).
   - Trigger with `<leader>zs` for the last day or call `:call <SID>SummarizeRecentDays(n)` for `n` days.
   - `:call <SID>SummarizeRecentWeeks(n)` summarizes `n` weeks (7×n days).
@@ -50,11 +51,11 @@ All integrated into Vim/Neovim via handy shortcuts and a few dynamic templates.
   - Results open in split windows so you can keep editing while they load.
   - Call `:call <SID>WhisperTranscribe('file.wav')` to convert existing audio.
   - Press `<leader>zr` to **record** with `arecord` for `g:zd_record_seconds` seconds and transcribe.
+  - Press `<leader>zR` to record, transcribe, **and summarize** the audio.
   - Summary buffers show the transcript text followed by the LLM's summary.
 - **File Summaries**:
   - `<leader>zB` summarizes the current file into a bullet list using `llama-cli`.
   - `<leader>zM` summarizes the current file as structured Markdown with headings.
-
 
 - **Templating System**:
   - Store your own markdown templates in `~/.zd/templates/` (e.g. `daily.md`, `weekly.md`, etc.).
@@ -179,8 +180,10 @@ Below are the default mappings (`<leader>` often defaults to `\` in Vim, but you
 | `<leader>zP` | **Open Projects Index**: Opens the master `projects.md` listing all created projects.        |
 | `<leader>zs` | **Summarize Dailies**: Asynchronously run `llama-cli` on the last day (or use `:call <SID>SummarizeRecentDays(n)` for more) and store the result. |
 | `<leader>zr` | **Record & Transcribe**: Record via `arecord` then transcribe. |
+| `<leader>zR` | **Record, Transcribe & Summarize**: Capture audio and generate a summary. |
 | `<leader>zB` | **Summarize File (Bullets)**: Generate a bullet list summary of the current file. |
 | `<leader>zM` | **Summarize File (Markdown)**: Summarize the current file with Markdown headings. |
+
 
 ### Example Workflows
 
@@ -196,6 +199,8 @@ Below are the default mappings (`<leader>` often defaults to `\` in Vim, but you
    - A link `[MyAwesomeProject](MyAwesomeProject/main_project.md)` is added to `projects.md`.
 4. **Record and Transcribe**:
    - Press `<leader>zr` to capture audio for a few seconds and automatically open the transcript.
+5. **Record, Transcribe & Summarize**:
+   - Press `<leader>zR` to capture audio and view both the transcript and its summary.
 
 ---
 
