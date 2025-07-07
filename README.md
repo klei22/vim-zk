@@ -35,14 +35,13 @@ All integrated into Vim/Neovim via handy shortcuts and a few dynamic templates.
   - Automatically added to `~/.zd/projects/projects.md` (a master index).
   - Quickly open any project from an interactive prompt.
   - Daily notes show all projects grouped by area for quick access.
-- **Llama Summaries**:
-  - Use `llama-cli` to generate a summary of recent daily notes.
-  - Set `g:zd_llama_repo` to select the model repository.
-  - `g:zd_llama_end_token` defines a word printed at the end of every summary so the job closes cleanly.
+- **Ollama Summaries**:
+  - Use a Python helper (`summarize_markdown.py`) to generate summaries via [Ollama](https://ollama.com/).
+  - Configure the script path with `g:zd_ollama_cmd` and the model with `g:zd_ollama_model`.
   - Summaries are saved under `~/.zd/summaries/<start>_<end>.txt` (customize via `g:zd_dir_summaries`).
   - Trigger with `<leader>zs` for the last day or call `:call <SID>SummarizeRecentDays(n)` for `n` days.
   - `:call <SID>SummarizeRecentWeeks(n)` summarizes `n` weeks (7×n days).
-  - Runs asynchronously so you can keep editing while `llama-cli` works.
+  - Runs asynchronously so you can keep editing while Ollama works.
 - **Whisper Transcription**:
   - Uses [faster-whisper](https://github.com/guillaumekln/faster-whisper) for speedy voice to text.
   - Command configured via `g:zd_whisper_cmd` (defaults to `faster-whisper`).
@@ -53,9 +52,9 @@ All integrated into Vim/Neovim via handy shortcuts and a few dynamic templates.
   - Press `<leader>zr` to **record** with `arecord` for `g:zd_record_seconds` seconds and transcribe.
   - Press `<leader>zR` to record, transcribe, **and summarize** the audio.
   - Summary buffers show the transcript text followed by the LLM's summary.
-- **File Summaries**:
-  - `<leader>zB` summarizes the current file into a bullet list using `llama-cli`.
-  - `<leader>zM` summarizes the current file as structured Markdown with headings.
+  - **File Summaries**:
+    - `<leader>zB` summarizes the current file into a bullet list using Ollama.
+    - `<leader>zM` summarizes the current file as structured Markdown with headings.
 
 - **Templating System**:
   - Store your own markdown templates in `~/.zd/templates/` (e.g. `daily.md`, `weekly.md`, etc.).
@@ -72,7 +71,7 @@ All integrated into Vim/Neovim via handy shortcuts and a few dynamic templates.
 1. **Prerequisites**:
    - You need a running Vim or Neovim environment.
    - This plugin is pure Vimscript; no external dependencies required.
-  - Install `llama-cli` if you want to use the summary feature.
+  - Install the `ollama` Python package and place `summarize_markdown.py` on your `PATH` (or set `g:zd_ollama_cmd`).
   - Install `arecord` (from ALSA) to capture audio snippets.
   - Install the `whisper` CLI for compatibility with earlier versions.
 
@@ -95,6 +94,17 @@ All integrated into Vim/Neovim via handy shortcuts and a few dynamic templates.
    If no template is found, fallback text is used.
 
 5. **Restart** Vim/Neovim and you’re ready!
+
+## Ollama Setup ✍️
+
+File summaries rely on a small Python script that uses [Ollama](https://ollama.com/).
+1. Install the `ollama` Python package:
+   ```bash
+   pip install ollama
+   ```
+2. Copy `summarize_markdown.py` from this repo somewhere on your `PATH` (or set
+   `g:zd_ollama_cmd` to its full path).
+3. Optionally pick a different model by setting `g:zd_ollama_model`.
 
 ## Faster-Whisper Setup 🗣️
 
@@ -178,7 +188,7 @@ Below are the default mappings (`<leader>` often defaults to `\` in Vim, but you
 | `<leader>tO` | **Open Done TODOS**: Quickly open `~/.zd/todos/done_todos.md`.                               |
 | `<leader>zp` | **Open/Prompt for Project**: Creates or opens a project’s `main_project.md`.                 |
 | `<leader>zP` | **Open Projects Index**: Opens the master `projects.md` listing all created projects.        |
-| `<leader>zs` | **Summarize Dailies**: Asynchronously run `llama-cli` on the last day (or use `:call <SID>SummarizeRecentDays(n)` for more) and store the result. |
+| `<leader>zs` | **Summarize Dailies**: Asynchronously run the Ollama summarizer on the last day (or use `:call <SID>SummarizeRecentDays(n)` for more) and store the result. |
 | `<leader>zr` | **Record & Transcribe**: Record via `arecord` then transcribe. |
 | `<leader>zR` | **Record, Transcribe & Summarize**: Capture audio and generate a summary. |
 | `<leader>zB` | **Summarize File (Bullets)**: Generate a bullet list summary of the current file. |
