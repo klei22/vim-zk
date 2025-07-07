@@ -24,6 +24,7 @@ let g:zd_dir_resources = g:zd_dir . '/resources'  " <--- shared resources
 let g:zd_dir_archives= g:zd_dir . '/archives'  " <--- old projects, etc, things unused but should keep
 let g:zd_dir_summaries = g:zd_dir . '/summaries'
 let g:zd_dir_transcripts = g:zd_dir . '/transcripts'
+let g:zd_dir_recordings = g:zd_dir . '/recordings'
 
 " Template filenames
 let g:zd_tpl_daily   = g:zd_dir_templates . '/daily.md'
@@ -43,8 +44,14 @@ let g:zd_areas_index = g:zd_dir_areas . '/areas.md'
 
 " Llama model repo for summaries
 let g:zd_llama_repo = 'unsloth/gemma-3n-E4B-it-GGUF'
-" Whisper model (for speech-to-text)
+" Token printed by llama-cli to indicate the end of output
+let g:zd_llama_end_token = '<END_OF_SUMMARY>'
+" faster-whisper model (for speech-to-text)
 let g:zd_whisper_model = 'large-v3'
+" Command used to run faster-whisper (can include python interpreter)
+let g:zd_whisper_cmd = 'faster-whisper'
+" Seconds to record audio when using arecord
+let g:zd_record_seconds = 10
 
 " Create top-level directories if they don't exist
 call mkdir(g:zd_dir_daily, 'p')
@@ -59,6 +66,7 @@ call mkdir(g:zd_dir_resources, 'p')
 call mkdir(g:zd_dir_archives, 'p')
 call mkdir(g:zd_dir_summaries, 'p')
 call mkdir(g:zd_dir_transcripts, 'p')
+call mkdir(g:zd_dir_recordings, 'p')
 
 
 " =============================================================================
@@ -828,12 +836,14 @@ function! s:SummarizeRecentDays(...) abort
     return
   endif
   let l:prompt = 'Summarize the following notes:\n' . join(l:all_lines, "\n")
+  let l:end_token = g:zd_llama_end_token
+  let l:prompt .= "\nFinish by outputting " . l:end_token
   let l:cmd = 'llama-cli -hf ' . g:zd_llama_repo . ' -p ' . shellescape(l:prompt)
   let l:summary_file = g:zd_dir_summaries . '/' . l:start_stamp . '_' . l:end_stamp . '.txt'
   call mkdir(fnamemodify(l:summary_file, ':h'), 'p')
   echom 'Running llama-cli asynchronously...'
   if exists('*jobstart') || exists('*job_start')
-    let l:ctx = { 'file': l:summary_file, 'out': [] }
+    let l:ctx = { 'file': l:summary_file, 'out': [], 'end_token': l:end_token }
     let l:opts = {
           \ 'stdout_buffered': 1,
           \ 'on_stdout': function('<SID>LlamaCollect', [l:ctx]),
@@ -843,24 +853,47 @@ function! s:SummarizeRecentDays(...) abort
   else
     echom 'jobstart() not available, running synchronously.'
     let l:summary = system(l:cmd)
-    call <SID>LlamaFinish({ 'file': l:summary_file, 'out': split(l:summary, "\n") }, 0, 0)
+    call <SID>LlamaFinish({ 'file': l:summary_file, 'out': split(l:summary, "\n"),
+          \ 'end_token': l:end_token }, 0, 0, '')
   endif
 endfunction
 
 function! s:LlamaCollect(ctx, job, data, event) abort
   if a:event ==# 'stdout' || a:event ==# 'stderr'
-    call extend(a:ctx.out, a:data)
+    for l:line in a:data
+      if l:line =~ a:ctx.end_token
+        let l:line = substitute(l:line, a:ctx.end_token, '', 'g')
+        if !empty(l:line)
+          call add(a:ctx.out, l:line)
+        endif
+        call s:JobStop(a:job)
+        return
+      endif
+      call add(a:ctx.out, l:line)
+    endfor
   endif
 endfunction
 
-function! s:LlamaFinish(ctx, job, status) abort
-  if a:ctx.out[-1] ==# ''
-    call remove(a:ctx.out, -1)
+" Finish callback for llama-cli job. Accept an unused event parameter for
+" compatibility with different Vim/Neovim versions which may pass three values
+" to on_exit.
+function! s:LlamaFinish(ctx, job, status, ...) abort
+  let l:out = map(copy(a:ctx.out), {_, v -> substitute(v, a:ctx.end_token, '', 'g')})
+  if l:out[-1] ==# ''
+    call remove(l:out, -1)
   endif
-  call writefile(a:ctx.out, a:ctx.file)
+  let l:content = ['Prompt:']
+  if has_key(a:ctx, 'prompt_lines')
+    call extend(l:content, a:ctx.prompt_lines)
+  endif
+  call add(l:content, '')
+  call add(l:content, 'Summary:')
+  call extend(l:content, l:out)
+  call writefile(l:content, a:ctx.file)
+  call s:WrapFile80(a:ctx.file)
   echom 'Summary saved to ' . a:ctx.file
   botright new
-  call setline(1, a:ctx.out)
+  call setline(1, l:content)
   setlocal buftype=nofile bufhidden=wipe noswapfile
 endfunction
 
@@ -871,6 +904,47 @@ function! s:JobStart(cmd, opts) abort
     return job_start(a:cmd, a:opts)
   else
     return -1
+  endif
+endfunction
+
+function! s:JobStop(job) abort
+  if exists('*jobstop')
+    call jobstop(a:job)
+  elseif exists('*job_stop')
+    call job_stop(a:job)
+  endif
+endfunction
+
+" Summarize an arbitrary text file using llama-cli
+function! s:SummarizeFile(file, summary_file, ...) abort
+  if !filereadable(a:file)
+    echom 'File not found: ' . a:file
+    return
+  endif
+  let l:preamble = (a:0 > 0 ? a:1 : 'Summarize the following text:')
+  let l:end_token = g:zd_llama_end_token
+  let l:show_text = (a:0 > 1 ? a:2 : 1)
+  let l:lines = readfile(a:file)
+  let l:text = join(l:lines, "\n")
+  let l:prompt = l:preamble . "\n" . l:text . "\nFinish by outputting " . l:end_token
+  let l:cmd = 'llama-cli -hf ' . g:zd_llama_repo . ' -p ' . shellescape(l:prompt)
+  call mkdir(fnamemodify(a:summary_file, ':h'), 'p')
+  echom 'Running llama-cli asynchronously...'
+  if exists('*jobstart') || exists('*job_start')
+    let l:ctx = { 'file': a:summary_file, 'out': [],
+          \ 'prompt_lines': (l:show_text ? split(l:text, "\n") : [l:preamble]),
+          \ 'end_token': l:end_token }
+    let l:opts = {
+          \ 'stdout_buffered': 1,
+          \ 'on_stdout': function('<SID>LlamaCollect', [l:ctx]),
+          \ 'on_stderr': function('<SID>LlamaCollect', [l:ctx]),
+          \ 'on_exit': function('<SID>LlamaFinish', [l:ctx]) }
+    call s:JobStart(l:cmd, l:opts)
+  else
+    let l:summary = system(l:cmd)
+    call <SID>LlamaFinish({ 'file': a:summary_file, 'out': split(l:summary, "\n"),
+          \ 'prompt_lines': (l:show_text ? split(l:text, "\n") : [l:preamble]),
+          \ 'end_token': l:end_token }, 0, 0, '')
   endif
 endfunction
 
@@ -885,8 +959,33 @@ nnoremap <silent> <leader>zS5 :call <SID>SummarizeRecentDays(5)<CR>
 nnoremap <silent> <leader>zS2 :call <SID>SummarizeRecentDays(2)<CR>
 
 " =============================================================================
-"                     VOICE-TO-TEXT VIA WHISPER
+"                     VOICE-TO-TEXT VIA FASTER-WHISPER
 " =============================================================================
+
+function! s:_WhisperTranscribe(audio, summary) abort
+  let l:out_file = g:zd_dir_transcripts . '/' . fnamemodify(a:audio, ':t:r') . '.txt'
+  call mkdir(fnamemodify(l:out_file, ':h'), 'p')
+  let l:cmd = g:zd_whisper_cmd . ' ' . shellescape(a:audio) .
+        \ ' --model ' . g:zd_whisper_model .
+        \ ' --device cuda --output ' . shellescape(l:out_file)
+
+  echom 'Running faster-whisper asynchronously...'
+  if exists('*jobstart') || exists('*job_start')
+    let l:ctx = { 'file': l:out_file, 'summary': a:summary }
+    if a:summary
+      let l:ctx.summary_file = g:zd_dir_summaries . '/' . fnamemodify(a:audio, ':t:r') . '_summary.txt'
+    endif
+    let l:opts = {
+          \ 'stdout_buffered': 1,
+          \ 'on_exit': function('<SID>WhisperFinish', [l:ctx]) }
+    call s:JobStart(l:cmd, l:opts)
+  else
+    echom 'jobstart() not available, running synchronously.'
+    call system(l:cmd)
+    call <SID>WhisperFinish({ 'file': l:out_file, 'summary': a:summary,
+          \ 'summary_file': (a:summary ? g:zd_dir_summaries . '/' . fnamemodify(a:audio, ':t:r') . '_summary.txt' : '') }, 0, 0, '')
+  endif
+endfunction
 
 function! s:WhisperTranscribe(...) abort
   if a:0 > 0
@@ -898,31 +997,98 @@ function! s:WhisperTranscribe(...) abort
     echo 'No audio provided.'
     return
   endif
+  call s:_WhisperTranscribe(l:audio, 0)
+endfunction
 
-  let l:out_file = g:zd_dir_transcripts . '/' . fnamemodify(l:audio, ':t:r') . '.txt'
-  call mkdir(fnamemodify(l:out_file, ':h'), 'p')
-  let l:cmd = 'whisper ' . shellescape(l:audio) .
-        \ ' --model ' . g:zd_whisper_model .
-        \ ' --device cuda --output_format txt --output_dir ' . shellescape(g:zd_dir_transcripts)
-
-  echom 'Running whisper asynchronously...'
-  if exists('*jobstart') || exists('*job_start')
-    let l:ctx = { 'file': l:out_file }
-    let l:opts = {
-          \ 'stdout_buffered': 1,
-          \ 'on_exit': function('<SID>WhisperFinish', [l:ctx]) }
-    call s:JobStart(l:cmd, l:opts)
+function! s:WhisperTranscribeAndSummarize(...) abort
+  if a:0 > 0
+    let l:audio = a:1
   else
-    echom 'jobstart() not available, running synchronously.'
-    call system(l:cmd)
-    call <SID>WhisperFinish({ 'file': l:out_file }, 0, 0)
+    let l:audio = input('Audio file: ')
+  endif
+  if empty(l:audio)
+    echo 'No audio provided.'
+    return
+  endif
+  call s:_WhisperTranscribe(l:audio, 1)
+endfunction
+
+" Callback after faster-whisper completes. Accept an optional event argument
+" because Neovim passes three parameters (job, status, event) to on_exit.
+" Reformat a text file to 80 columns using `fold -s` if available
+function! s:WrapFile80(file) abort
+  if filereadable(a:file) && executable('fold')
+    let l:tmp = tempname()
+    call system('fold -s -w 80 ' . shellescape(a:file) . ' > ' . shellescape(l:tmp))
+    call rename(l:tmp, a:file)
   endif
 endfunction
 
-function! s:WhisperFinish(ctx, job, status) abort
+function! s:WhisperFinish(ctx, job, status, ...) abort
+  call s:WrapFile80(a:ctx.file)
   echom 'Transcription saved to ' . a:ctx.file
-  execute 'edit ' . fnameescape(a:ctx.file)
+  execute 'botright vsplit ' . fnameescape(a:ctx.file)
+  if get(a:ctx, 'summary', 0)
+    call s:SummarizeFile(a:ctx.file, a:ctx.summary_file)
+  endif
 endfunction
 
-nnoremap <silent> <leader>zv :call <SID>WhisperTranscribe()<CR>
+" Record audio using arecord and then transcribe
+function! s:_WhisperRecord(...) abort
+  let l:summary = (a:0 > 0 ? a:1 : 0)
+  let l:audio = g:zd_dir_recordings . '/' . strftime('%Y%m%d-%H%M%S') . '.wav'
+  call mkdir(fnamemodify(l:audio, ':h'), 'p')
+  let l:cmd = 'arecord -f cd -d ' . g:zd_record_seconds . ' ' . shellescape(l:audio)
+  echom 'Recording ' . g:zd_record_seconds . ' seconds of audio...'
+  if exists('*jobstart') || exists('*job_start')
+    let l:ctx = { 'audio': l:audio, 'summary': l:summary }
+    let l:opts = { 'on_exit': function('<SID>RecordFinish', [l:ctx]) }
+    call s:JobStart(l:cmd, l:opts)
+  else
+    call system(l:cmd)
+    call <SID>RecordFinish({ 'audio': l:audio, 'summary': l:summary }, 0, 0, '')
+  endif
+endfunction
 
+" Called after arecord finishes to kick off transcription. Accept a dummy event
+" argument for compatibility with Neovim's on_exit callback.
+function! s:RecordFinish(ctx, job, status, ...) abort
+  echom 'Recording saved to ' . a:ctx.audio
+  call s:_WhisperTranscribe(a:ctx.audio, get(a:ctx, 'summary', 0))
+endfunction
+
+function! s:WhisperRecordTranscribe() abort
+  call s:_WhisperRecord(0)
+endfunction
+
+function! s:WhisperRecordTranscribeAndSummarize() abort
+  call s:_WhisperRecord(1)
+endfunction
+
+nnoremap <silent> <leader>zr :call <SID>WhisperRecordTranscribe()<CR>
+nnoremap <silent> <leader>zR :call <SID>WhisperRecordTranscribeAndSummarize()<CR>
+
+" Summarize the current file as bullet points
+function! s:SummarizeCurrentBullet() abort
+  let l:file = expand('%:p')
+  if empty(l:file) || !filereadable(l:file)
+    echo 'No file to summarize.'
+    return
+  endif
+  let l:out = g:zd_dir_summaries . '/' . fnamemodify(l:file, ':t:r') . '_bullet.txt'
+  call s:SummarizeFile(l:file, l:out, 'Summarize the following text as bullet points:', 0)
+endfunction
+
+" Summarize the current file in markdown format
+function! s:SummarizeCurrentMarkdown() abort
+  let l:file = expand('%:p')
+  if empty(l:file) || !filereadable(l:file)
+    echo 'No file to summarize.'
+    return
+  endif
+  let l:out = g:zd_dir_summaries . '/' . fnamemodify(l:file, ':t:r') . '_summary.md'
+  call s:SummarizeFile(l:file, l:out, 'Summarize the following text in markdown with section headings and bullet points:', 0)
+endfunction
+
+nnoremap <silent> <leader>zB :call <SID>SummarizeCurrentBullet()<CR>
+nnoremap <silent> <leader>zM :call <SID>SummarizeCurrentMarkdown()<CR>
