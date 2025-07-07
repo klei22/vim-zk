@@ -46,6 +46,7 @@ let g:zd_areas_index = g:zd_dir_areas . '/areas.md'
 let g:zd_ollama_cmd = 'summarize_markdown.py'
 " Default model for Ollama summaries
 let g:zd_ollama_model = 'hf.co/unsloth/gemma-3n-E4B-it-GGUF:Q4_K_XL'
+
 " faster-whisper model (for speech-to-text)
 let g:zd_whisper_model = 'large-v3'
 " Command used to run faster-whisper (can include python interpreter)
@@ -447,7 +448,9 @@ function! s:AddTodo() abort
   let l:todo_id = strftime('%Y%m%d%H%M%S')
   let l:todo_filename = g:zd_dir_todos . '/' . l:todo_id . '.md'
   let l:note_lines = [
-  \ '# TODO Note: ' . l:todo_id,
+  \ '# TODO Note: '
+16:08❯ cat 20250706-160749.txt
+ . l:todo_id,
   \ '',
   \ 'Created: ' . strftime('%Y-%m-%d %H:%M:%S'),
   \ '',
@@ -528,6 +531,8 @@ function! s:OpenDoneTodos() abort
   if !filereadable(g:zd_done_todos)
     call writefile(['# Done TODOS', ''], g:zd_done_todos)
   endif
+16:08❯ cat 20250706-160749.txt
+
   execute 'edit ' . fnameescape(g:zd_done_todos)
 endfunction
 
@@ -613,6 +618,8 @@ function! s:OpenProject(...) abort
   if !isdirectory(l:dir)
     call mkdir(l:dir, 'p')
   endif
+
+16:08❯ cat 20250706-160749.txt
 
   " If not exist, create from template or fallback
   if !filereadable(l:file)
@@ -996,6 +1003,7 @@ function! s:WhisperFinish(ctx, job, status, ...) abort
   endif
 endfunction
 
+
 " Record audio using arecord and then transcribe
 function! s:_WhisperRecord(...) abort
   let l:summary = (a:0 > 0 ? a:1 : 0)
@@ -1011,6 +1019,7 @@ function! s:_WhisperRecord(...) abort
     call system(l:cmd)
     call <SID>RecordFinish({ 'audio': l:audio, 'summary': l:summary }, 0, 0, '')
   endif
+  call s:_WhisperTranscribe(l:audio, 1)
 endfunction
 
 " Called after arecord finishes to kick off transcription. Accept a dummy event
@@ -1042,6 +1051,7 @@ function! s:SummarizeCurrentBullet() abort
   call s:SummarizeFile(l:file, l:out, 'Summarize the following text as bullet points:', 0)
 endfunction
 
+=
 " Summarize the current file in markdown format
 function! s:SummarizeCurrentMarkdown() abort
   let l:file = expand('%:p')
